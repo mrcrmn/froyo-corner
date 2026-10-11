@@ -13,6 +13,7 @@ import {
 } from '../entities/appearance';
 import { money, fmtTime, stars, escapeHtml as esc, pick, randi, rand } from '../core/util';
 import { isTouch } from './touch';
+import { canInstall, isInstalled, isIos, promptInstall } from './pwa';
 
 type PanelName =
   | 'shop' | 'lager' | 'preise' | 'bank' | 'personal' | 'bewertungen' | 'einstellungen' | 'charakter'
@@ -782,7 +783,8 @@ export class UI {
       ${this.btn('❓ Hilfe', () => this.openPanel('hilfe'))}
       ${this.btn('⚙️ Einstellungen', () => this.openPanel('einstellungen'))}
       ${this.btn('🎨 Figur anpassen', () => this.openPanel('charakter'))}
-      ${isTouch() && document.fullscreenEnabled ? this.btn(document.fullscreenElement ? '🗗 Vollbild beenden' : '⛶ Vollbild', () => this.toggleFullscreen()) : ''}
+      ${canInstall() ? this.btn('📲 Als App installieren', () => this.install()) : ''}
+      ${isTouch() && !isInstalled() && document.fullscreenEnabled ? this.btn(document.fullscreenElement ? '🗗 Vollbild beenden' : '⛶ Vollbild', () => this.toggleFullscreen()) : ''}
       ${this.btn('💾 Speichern', () => { saveState(g.state); g.toast('Gespeichert. (Laufender Tag wird beim Laden neu gestartet.)', 'good'); })}
       ${this.btn(this.confirmNew ? '⚠️ Wirklich alles löschen?' : '🗑️ Neues Spiel', () => {
     if (!this.confirmNew) { this.confirmNew = true; this.renderPanel(); return; }
@@ -790,6 +792,11 @@ export class UI {
     location.reload();
   }, { cls: this.confirmNew ? 'danger' : '' })}
     </div>`;
+  }
+
+  private async install(): Promise<void> {
+    if (await promptInstall()) { this.renderPanel(); return; }
+    if (isIos()) this.g.toast('So geht’s: in Safari unten auf Teilen (□↑) tippen, dann „Zum Home-Bildschirm“.', 'info');
   }
 
   private async toggleFullscreen(): Promise<void> {

@@ -162,6 +162,10 @@ export class Shop {
     const floorTheme = THEME_BY_ID.get(state.theme.floor)!;
     const awning = THEME_BY_ID.get(state.theme.awning)!;
     const vb = new VB();
+    // Gummimatte hinter der Theke: Fläche, unter der keine Fugen/Sprenkel liegen dürfen –
+    // sonst liegen deren Oberseiten auf gleicher Höhe wie die Matte und flackern (Z-Fighting)
+    const matX1 = W / 2 - 1.6, matZ1 = L.counterZ - 0.4;
+    const underMat = (x: number, z: number) => x < matX1 && z < matZ1;
     // Boden
     for (let x = -W / 2; x < W / 2; x += 1) {
       for (let z = -D; z < 0; z += 1) {
@@ -172,16 +176,19 @@ export class Shop {
         else if (floorTheme.id === 'floor_terrazzo') c = cs[0];
         else c = cs[(ix + iz) % 2];
         vb.cube(x, -0.1, z, 1, 0.1, 1, c, 'solid', 0.03);
-        if (floorTheme.id === 'floor_holz') {
+        if (floorTheme.id === 'floor_holz' && !underMat(x + 0.5, z + 0.5)) {
           vb.cube(x, 0, z + 0.46, 1, 0.012, 0.08, 0xb08a62, 'solid', 0);
         }
         if (floorTheme.id === 'floor_terrazzo') {
-          for (let k = 0; k < 3; k++) vb.cube(x + Math.random() * 0.85, 0, z + Math.random() * 0.85, 0.14, 0.01, 0.12, cs[1 + (k % 2)], 'solid', 0);
+          for (let k = 0; k < 3; k++) {
+            const px = x + Math.random() * 0.85, pz = z + Math.random() * 0.85;
+            if (!underMat(px + 0.07, pz + 0.06)) vb.cube(px, 0, pz, 0.14, 0.01, 0.12, cs[1 + (k % 2)], 'solid', 0);
+          }
         }
       }
     }
     // Gummimatte hinter der Theke
-    vb.cube(-W / 2, 0, -D, W - 1.6, 0.012, L.counterZ - 0.4 + D, 0x6b6470, 'solid', 0.02);
+    vb.cube(-W / 2, 0, -D, matX1 + W / 2, 0.025, matZ1 + D, 0x6b6470, 'solid', 0.02);
 
     const wc = wallTheme.colors[0];
     const wc2 = wallTheme.colors[1];
@@ -345,8 +352,9 @@ export class Shop {
       let g: THREE.Group;
       if (!owned) {
         const vb = new VB();
-        vb.box(0, 0.006, 0, 0.9, 0.012, 0.6, 0xdcd3c8, 'solid', 0);
-        for (let k = -2; k <= 2; k++) vb.box(k * 0.18, 0.014, 0.28, 0.1, 0.01, 0.03, 0xf28cab, 'solid', 0);
+        // liegt auf der Gummimatte (Oberseite 0,025) – deutlich darüber, sonst flackert es
+        vb.box(0, 0.033, 0, 0.9, 0.016, 0.6, 0xdcd3c8, 'solid', 0);
+        for (let k = -2; k <= 2; k++) vb.box(k * 0.18, 0.044, 0.28, 0.1, 0.01, 0.03, 0xf28cab, 'solid', 0);
         g = vb.build();
         g.position.set(x, 0, -D + 0.5);
         this.roomGroup.add(g);

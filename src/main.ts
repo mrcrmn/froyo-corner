@@ -2,9 +2,11 @@ import { Game } from './game/game';
 import { hasSave, loadState, newState, clearSave, GameState } from './game/state';
 import { defaultPlayer } from './entities/appearance';
 import { initTouchDetection, isTouch } from './ui/touch';
+import { initPwa, isInstalled } from './ui/pwa';
 
 const app = document.getElementById('app')!;
 initTouchDetection();
+initPwa();
 
 function startGame(state: GameState, fresh: boolean): void {
   app.innerHTML = '';
@@ -12,7 +14,7 @@ function startGame(state: GameState, fresh: boolean): void {
   game.start();
   game.music.start();
   if (fresh || !state.tutorialDone) game.ui.openPanel('hilfe');
-  if (isTouch() && innerHeight > innerWidth) game.toast('Tipp: Dreh dein Handy quer – so hast du mehr Überblick.');
+  if (isTouch() && innerHeight > innerWidth && !isInstalled()) game.toast('Tipp: Dreh dein Handy quer – so hast du mehr Überblick.');
   (window as unknown as { game: Game }).game = game;
 }
 
