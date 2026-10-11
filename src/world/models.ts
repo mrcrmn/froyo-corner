@@ -507,3 +507,75 @@ export function signTexture(text: string, bg = '#fff6e8', fg = '#e2557e'): THREE
 }
 
 export { WOOD, WOOD_D, STEEL, STEEL_D, PINK, CREAM };
+
+// ---------------------------------------------------------------- Nebenraum
+
+export interface MixerParts { group: THREE.Group; paddle: THREE.Object3D; lamp: THREE.Mesh }
+
+/** Rührwerk: aus Basis + Aroma wird ein Kanister Frozen Yogurt */
+export function ruehrwerkModel(): MixerParts {
+  const vb = new VB();
+  cabinet(vb, 1.1, 0.7, 0xe9eef2);
+  // Kessel
+  vb.box(0, 1.25, -0.02, 0.62, 0.6, 0.55, STEEL);
+  vb.box(0, 1.56, -0.02, 0.68, 0.05, 0.6, STEEL_D);
+  vb.box(0, 1.5, -0.02, 0.5, 0.06, 0.44, 0xf8f3e8, 'solid', 0); // Joghurt im Kessel
+  // Galgen fürs Rührwerk
+  vb.box(0.4, 1.6, -0.25, 0.08, 0.95, 0.08, STEEL_D);
+  vb.box(0.2, 2.05, -0.02, 0.52, 0.12, 0.14, 0xffffff);
+  vb.box(0.2, 2.05, 0.06, 0.3, 0.05, 0.01, PINK, 'glow', 0);
+  // Ausguss vorn
+  vb.box(0, 1.1, 0.3, 0.1, 0.08, 0.1, STEEL_D);
+  // Bedienfeld
+  vb.box(-0.42, 1.1, 0.27, 0.18, 0.28, 0.04, 0xffffff);
+  const group = vb.build();
+  const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.07, 0.03), new THREE.MeshBasicMaterial({ color: 0x55ff77 }));
+  lamp.position.set(-0.42, 1.18, 0.3);
+  group.add(lamp);
+  // Rührhaken (dreht sich beim Anrühren)
+  const pv = new VB();
+  pv.box(0, -0.25, 0, 0.04, 0.5, 0.04, STEEL_D);
+  pv.box(0, -0.45, 0, 0.3, 0.05, 0.04, STEEL_D);
+  pv.box(0, -0.45, 0, 0.04, 0.05, 0.3, STEEL_D);
+  const paddle = pv.build({ shadow: false });
+  paddle.position.set(0, 2.0, -0.02);
+  group.add(paddle);
+  return { group, paddle, lamp };
+}
+
+/** Kühlregal mit Milchkanistern – Vorrat an Joghurt-Basis */
+export function basisRegalModel(): THREE.Group {
+  const vb = new VB();
+  vb.box(0, 1.0, 0, 0.9, 2.0, 0.55, 0xe8edf2);
+  for (const y of [0.35, 0.9, 1.45]) {
+    vb.box(0, y, 0.02, 0.82, 0.04, 0.5, STEEL_D);
+    for (let i = 0; i < 3; i++) {
+      vb.box(-0.27 + i * 0.27, y + 0.17, 0.05, 0.2, 0.3, 0.2, 0xffffff);
+      vb.box(-0.27 + i * 0.27, y + 0.2, 0.152, 0.16, 0.08, 0.01, 0x7fb8e6);
+    }
+  }
+  vb.box(0, 1.92, 0.28, 0.7, 0.12, 0.02, 0x7fd6b4, 'glow', 0);
+  return vb.build();
+}
+
+/** Kanister mit frisch angerührtem Joghurt – zum Tragen */
+export function kanisterModel(color: number): THREE.Group {
+  const vb = new VB();
+  vb.box(0, 0.16, 0, 0.26, 0.3, 0.2, 0xf4f6f8);
+  vb.box(0, 0.16, 0.101, 0.2, 0.12, 0.01, color, 'solid', 0);
+  vb.box(0, 0.33, 0, 0.12, 0.05, 0.1, color);
+  vb.box(0, 0.38, 0, 0.18, 0.04, 0.04, 0x9aa1ab); // Griff
+  return vb.build({ shadow: false });
+}
+
+/** Spülbecken an der Wand */
+export function sinkModel(): THREE.Group {
+  const vb = new VB();
+  cabinet(vb, 1.0, 0.6, 0xe9eef2);
+  vb.box(0, 0.93, 0, 0.6, 0.04, 0.4, STEEL_D, 'solid', 0);
+  vb.box(0, 1.15, -0.24, 0.05, 0.4, 0.05, STEEL);
+  vb.box(0, 1.33, -0.14, 0.05, 0.05, 0.22, STEEL);
+  // Tücher & Eimer
+  vb.box(0.38, 1.0, 0.1, 0.18, 0.08, 0.14, 0x7fd6b4);
+  return vb.build();
+}

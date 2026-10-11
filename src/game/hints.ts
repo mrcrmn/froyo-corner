@@ -2,7 +2,7 @@ import type { Game } from './game';
 import type { Character } from '../entities/character';
 import type { Persona } from '../data/dialogue';
 import {
-  BaseKind, DRINKS, EQUIPMENT_BY_ID, LEVELS, TOPPINGS, VARIANTS, Variant,
+  BaseKind, DRINKS, EQUIPMENT_BY_ID, FLAVORS, LEVELS, TOPPINGS, VARIANTS, Variant,
 } from '../data/catalog';
 import { itemName } from './orders';
 import { productImg, productUrl, toppingImg, toppingUrl } from '../ui/pixelart';
@@ -146,6 +146,17 @@ export class Hints {
     const s = g.state;
     const seen = (k: string) => s.hintsSeen.includes(k);
     const cash = s.money;
+    // Joghurt wird knapp → Nebenraum zeigen
+    const lowFlavor = FLAVORS.find((f) => s.unlocked.includes(f.id) && s.equipment.includes(f.machine) && (s.stock['froyo_' + f.id] ?? 0) <= 12);
+    if (lowFlavor && !seen('backroom')) {
+      return {
+        key: 'backroom',
+        hint: {
+          id: '', icon: productUrl({ base: 'froyo', variant: lowFlavor.id, toppings: [] }), title: 'Joghurt selbst anrühren',
+          text: `<b>${escapeHtml(lowFlavor.name)}</b> geht bald aus. Geh durch die Tür in der Rückwand in den <b>Nebenraum</b>: Am <b>Rührwerk</b> wird aus Joghurt-Basis ein Kanister – den trägst du zur Maschine.`,
+        },
+      };
+    }
     // nächstes Gerät – das, wonach am meisten gefragt wurde, sonst in dieser Reihenfolge
     const missing = ['waffeleisen', 'kaffeemaschine', 'getraenkekuehlschrank', 'matchabar', 'vorratskuehlschrank', 'eismaschine']
       .filter((id) => !s.equipment.includes(id))

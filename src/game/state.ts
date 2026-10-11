@@ -58,6 +58,7 @@ export function newState(): GameState {
   for (const d of stockDefs()) stock[d.id] = 0;
   stock['froyo_natur'] = 25;
   stock['froyo_erdbeere'] = 25;
+  stock['basis'] = 36;
   stock['top_schokostreusel'] = 40;
   stock['top_bunte'] = 40;
   stock['top_schokosauce'] = 40;

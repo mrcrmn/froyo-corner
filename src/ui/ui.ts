@@ -3,7 +3,7 @@ import type { ChoicePanel } from '../game/interact';
 import type { Hint } from '../game/hints';
 import {
   EQUIPMENT, EQUIPMENT_BY_ID, FLAVORS, WAFFLES, COFFEES, MATCHAS, TOPPINGS, DRINKS, PLACEABLES, PLACEABLE_BY_ID,
-  THEMES, THEME_BY_ID, LICHTERKETTE, LEVELS, stockDefs, PRICE_LABEL, FAIR_PRICE, LOAN_OFFERS, PriceCat, Variant, StockDef,
+  THEMES, THEME_BY_ID, LICHTERKETTE, LEVELS, stockDefs, PRICE_LABEL, FAIR_PRICE, LOAN_OFFERS, PriceCat, Variant, StockDef, VARIANT_BY_ID,
 } from '../data/catalog';
 import { STAFF_NAMES, STAFF_TRAITS } from '../data/dialogue';
 import { avgRating, saveState, clearSave, StaffMember, StaffRole } from '../game/state';
@@ -324,7 +324,7 @@ export class UI {
     el.className = 'toast hint';
     el.innerHTML = `${h.icon ? `<img class="px px-m" src="${h.icon}" alt="">` : '<span class="hint-bulb">💡</span>'}
       <div class="hint-body"><b class="hint-title">${esc(h.title)}</b><div>${h.text}</div>
-      <div class="hint-btns">${h.action ? `<button class="primary hint-go">${esc(h.action.label)}</button>` : ''}<button class="hint-x">Später</button></div></div>`;
+      <div class="hint-btns">${h.action ? `<button class="primary hint-go">${esc(h.action.label)}</button>` : ''}<button class="hint-x">${h.action ? 'Später' : 'Alles klar'}</button></div></div>`;
     const close = () => { el.classList.add('out'); setTimeout(() => el.remove(), 500); };
     el.querySelector('.hint-go')?.addEventListener('click', () => { this.g.sfx.play('click'); close(); h.action!.run(); });
     el.querySelector('.hint-x')!.addEventListener('click', () => { this.g.sfx.play('click'); close(); });
@@ -570,6 +570,7 @@ export class UI {
     const s = this.g.state;
     const allV = new Map([...FLAVORS, ...WAFFLES, ...COFFEES, ...MATCHAS].map((v) => [v, v]));
     return stockDefs().filter((d) => {
+      if (d.id === 'basis') return true;
       if (d.id === 'coffee') return s.equipment.includes('kaffeemaschine');
       if (d.id.startsWith('top_')) {
         const t = TOPPINGS.find((x) => 'top_' + x.id === d.id)!;
@@ -596,18 +597,24 @@ export class UI {
     const defs = this.relevantStock();
     const groups = new Map<string, StockDef[]>();
     for (const d of defs) groups.set(d.group, [...(groups.get(d.group) ?? []), d]);
-    const fillCost = defs.reduce((a, d) => a + ((s.stock[d.id] ?? 0) < d.pack ? d.cost : 0), 0);
+    const buyable = defs.filter((d) => !d.made);
+    const fillCost = buyable.reduce((a, d) => a + ((s.stock[d.id] ?? 0) < d.pack ? d.cost : 0), 0);
     const html = [...groups].map(([grp, list]) => `<h3>${esc(grp)}</h3>${list.map((d) => {
       const n = s.stock[d.id] ?? 0;
+      if (d.made) {
+        return `<div class="line ${n === 0 ? 'warn' : n < 8 ? 'low' : ''}"><span class="swatch" style="background:${hex(d.color)}"></span>
+        <span class="grow">${esc(d.name)}</span><span class="count">${n}</span><span class="tag" title="Im Nebenraum am Rührwerk anrühren">🥣 selbst anrühren</span></div>`;
+      }
       return `<div class="line ${n === 0 ? 'warn' : n < 8 ? 'low' : ''}"><span class="swatch" style="background:${hex(d.color)}"></span>
         <span class="grow">${esc(d.name)}</span><span class="count">${n}</span>
         ${this.btn(`+${d.pack} · ${money(d.cost)}`, () => { if (this.buyStock(d, 1)) { g.sfx.play('coin'); this.refresh(); } }, { disabled: s.money < d.cost })}
         ${this.btn(`+${d.pack * 5}`, () => { if (this.buyStock(d, 5)) { g.sfx.play('coin'); this.refresh(); } }, { disabled: s.money < d.cost * 5, title: money(d.cost * 5) })}
       </div>`;
     }).join('')}`).join('');
-    return `<p class="small">Hier kaufst du Zutaten ein. Leere Sorten kannst du nicht zubereiten – und Gäste werden sauer, wenn es ihr Lieblingsprodukt nicht gibt.</p>
+    return `<p class="small">Hier kaufst du Zutaten ein. Leere Sorten kannst du nicht zubereiten – und Gäste werden sauer, wenn es ihr Lieblingsprodukt nicht gibt.
+      Frozen Yogurt rührst du im <b>Nebenraum</b> selbst an: aus der Joghurt-Basis wird am Rührwerk ein Kanister, den du zur Maschine trägst.</p>
       <div class="line">${this.btn(`Alles Knappe auffüllen · ${money(fillCost)}`, () => {
-    for (const d of defs) if ((s.stock[d.id] ?? 0) < d.pack) this.buyStock(d, 1);
+    for (const d of buyable) if ((s.stock[d.id] ?? 0) < d.pack) this.buyStock(d, 1);
     g.sfx.play('coin');
     this.refresh();
   }, { cls: 'primary', disabled: fillCost === 0 || s.money < fillCost })}</div>
@@ -857,6 +864,7 @@ export class UI {
         <li>An der <b>Topping-Bar</b> die gewünschten Toppings drauf.</li>
         <li>An der <b>Ausgabe</b> übergeben. Richtig = Trinkgeld, falsch = schlechte Bewertung.</li>
         <li>Ein <b>Dieb</b> an der Topping-Bar? Hin und ${useKey} – Löffel auf die Finger!</li>
+        <li>Geht ein Joghurt zur Neige? Im <b>Nebenraum</b> (Tür in der Rückwand) am <b>Rührwerk</b> frisch anrühren und den Kanister zur Maschine tragen.</li>
         <li>Um 19 Uhr schließt der Laden. Abends werden Miete, Löhne und Kredite fällig.</li>
       </ol>
       <p class="small">Tipp: Tische mit Stühlen locken Gruppen zum Kaffeeklatsch an – die bestellen gern Kaffee & Matcha nach.</p>
@@ -948,7 +956,9 @@ export class UI {
     this.refs.tickets.style.display = th ? '' : 'none';
     // Hand
     const held = g.player.held;
-    const hh = held ? `${productImg(held, 'px-m', describeOrder(held))}<span>${esc(describeOrder(held))}</span>${held.burnt ? ' <span class="tag bad">verbrannt</span>' : ''}` : '';
+    const carry = g.player.carry ? VARIANT_BY_ID.get(g.player.carry) : null;
+    const hh = held ? `${productImg(held, 'px-m', describeOrder(held))}<span>${esc(describeOrder(held))}</span>${held.burnt ? ' <span class="tag bad">verbrannt</span>' : ''}`
+      : carry ? `${productImg({ base: 'froyo', variant: carry.id, toppings: [] }, 'px-m', carry.name)}<span>Kanister ${esc(carry.name)} → ${carry.machine === 'zapfer' ? 'Zapfer' : 'Eismaschine'}</span>` : '';
     if (this.lastHeld !== hh) { this.lastHeld = hh; this.refs.held.innerHTML = hh; }
     this.refs.held.style.display = hh ? '' : 'none';
     // Prompt

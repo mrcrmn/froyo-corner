@@ -105,7 +105,11 @@ export class Game implements Ctx {
     this.build = new BuildMode(this);
     this.alerts = new StockAlerts(this);
     this.hints = new Hints(this);
-    this.bubbles.onAlertClick = () => { if (!this.build.active) this.ui.openPanel('lager'); };
+    this.bubbles.onAlertClick = (id) => {
+      if (this.build.active) return;
+      if (id === 'zapfer' || id === 'eismaschine') this.toast('🥣 Frischen Joghurt rührst du im Nebenraum an – durch die Tür in der Rückwand.');
+      else this.ui.openPanel('lager');
+    };
     this.syncStaff();
 
     this.sfx.volume = state.settings.sfx;
@@ -521,7 +525,10 @@ export class Game implements Ctx {
 
     // Spieler
     const L = this.shop.layout;
-    const bounds = (x: number, z: number) => x > -L.W / 2 + 0.35 && x < L.W / 2 - 0.35 && z > -L.D + 0.35 && z < -0.3;
+    const B = L.back;
+    const bounds = (x: number, z: number) => (x > -L.W / 2 + 0.35 && x < L.W / 2 - 0.35 && z > -L.D + 0.35 && z < -0.3)
+      // Nebenraum (die Rückwand hat Kollision – rein geht's nur durch den Durchgang)
+      || (x > B.x0 + 0.35 && x < B.x1 - 0.35 && z > B.z0 + 0.35 && z < -L.D + 0.4);
     const input = this.interact.busy ? new THREE.Vector2() : this.moveInput();
     this.player.update(dt, input, this.shop.colliders, bounds);
 
@@ -543,7 +550,8 @@ export class Game implements Ctx {
     const L = this.shop.layout;
     const p = this.player.pos;
     const tx = this.build.active ? 0 : clamp(p.x, -L.W / 2 + 3, L.W / 2 - 3);
-    const tz = this.build.active ? -L.D / 2 + 0.5 : clamp(p.z, -L.D + 2.5, -1.5);
+    // im Nebenraum darf die Kamera weiter nach hinten
+    const tz = this.build.active ? -L.D / 2 + 0.5 : clamp(p.z, p.z < -L.D + 0.2 ? -L.D - 1.4 : -L.D + 2.5, -1.5);
     this.camTarget.x = damp(this.camTarget.x, tx, 4, dt);
     this.camTarget.z = damp(this.camTarget.z, tz, 4, dt);
     const base = this.build.active ? 1.25 + L.W / 40 : 0.95 + L.W / 60;

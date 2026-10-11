@@ -3,6 +3,7 @@ import { VB, disposeObject } from '../core/voxel';
 import { pick, rand, chance } from '../core/util';
 import { Character } from '../entities/character';
 import { randomAppearance } from '../entities/appearance';
+import { backRoomRect } from './shop';
 
 export const SIDEWALK_NEAR = [2.0, 3.3];
 export const SIDEWALK_FAR = [12.6, 13.8];
@@ -287,10 +288,13 @@ export class City {
         first = false;
       }
     }
-    // Rückseite des Ladens: Hinterhof
-    vb.box(0, -0.05, -D - 3, W + 1, 0.1, 6, 0x8f8a84);
-    vb.box(-W / 2 + 1, 0.5, -D - 1.2, 1.2, 1.0, 0.8, 0x3a5a40);
-    vb.box(-W / 2 + 2.5, 0.4, -D - 1.0, 0.8, 0.8, 0.8, 0x8c6239);
+    // Rückseite des Ladens: Hinterhof – neben und hinter dem Nebenraum
+    const B = backRoomRect(W, D);
+    const x0 = B.x1 + 0.3, x1 = W / 2 + 0.5;
+    vb.box((x0 + x1) / 2, -0.05, -D - 3, x1 - x0, 0.1, 6, 0x8f8a84);
+    vb.box((-W / 2 - 0.5 + x0) / 2, -0.05, -D - 4.65, x0 + W / 2 + 0.5, 0.1, 2.7, 0x8f8a84);
+    vb.box(W / 2 - 1, 0.5, -D - 1.2, 1.2, 1.0, 0.8, 0x3a5a40);
+    vb.box(W / 2 - 2.5, 0.4, -D - 1.0, 0.8, 0.8, 0.8, 0x8c6239);
     finalize(vb, win, lamp, this.neighborGroup);
   }
 

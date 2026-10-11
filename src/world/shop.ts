@@ -8,6 +8,7 @@ import {
 import {
   COUNTER_H, zapferModel, eismaschineModel, waffleIronModel, coffeeModel, trashModel, storageFridgeModel,
   drinksFridgeModel, registerModel, toppingBarModel, placeableModel, signTexture, matchaBarModel, WaffleIronParts,
+  ruehrwerkModel, basisRegalModel, sinkModel, MixerParts,
 } from './models';
 
 export const WALL_H = 3.2;
@@ -21,6 +22,8 @@ export interface Station {
   ix: number;
   iz: number;
   group: THREE.Group;
+  /** wohin der Spieler beim Benutzen schaut (Standard: zur Rückwand) */
+  face?: P2;
 }
 
 export interface Seat {
@@ -61,6 +64,15 @@ export interface Layout {
   doorOut: P2;
   placeArea: Rect;
   reserved: Rect[];
+  /** Nebenraum (Produktion) hinter der Rückwand */
+  back: Rect;
+  /** Durchgang in der Rückwand (x von/bis) */
+  backDoor: [number, number];
+}
+
+/** Nebenraum hinten links (vom Spieler aus gesehen rechts) – auch für die Stadt (Hinterhof) */
+export function backRoomRect(W: number, D: number): Rect {
+  return { x0: -W / 2, z0: -D - 3, x1: -W / 2 + 4.5, z1: -D };
 }
 
 const SLOT_ORDER = ['vorratskuehlschrank', 'trash', 'kaffeemaschine', 'matchabar', 'zapfer', 'eismaschine', 'waffeleisen'];
@@ -97,6 +109,8 @@ export function computeLayout(level: number, toppingCount: number): Layout {
     doorOut: { x: doorX, z: 1.0 },
     placeArea: { x0: -W / 2 + 0.2, z0: counterZ + 0.4, x1: W / 2 - 0.2, z1: -0.2 },
     reserved,
+    back: backRoomRect(W, D),
+    backDoor: [-W / 2 + 0.4, -W / 2 + 1.9],
   };
 }
 
@@ -122,6 +136,7 @@ export class Shop {
   colliders: Rect[] = [];
   stations = new Map<string, Station>();
   waffle: WaffleIronParts | null = null;
+  mixer: MixerParts | null = null;
   seats: Seat[] = [];
   tables: TableInfo[] = [];
   furnitureMeshes = new Map<number, THREE.Group>();
@@ -206,10 +221,19 @@ export class Shop {
         vb.box(x - sx * 0.17, 2.15, z, 0.06, 0.06, 0.15, 0xd4af37);
       }
     }
-    // Rückwand (niedrig, Puppenhaus-Schnitt)
-    vb.box(0, 0.3, -D - T / 2, W + 2 * T, 0.6, T, wc);
-    vb.box(0, 0.62, -D - T / 2, W + 2 * T, 0.05, T + 0.02, 0xffffff);
-    this.colliders.push({ x0: -W / 2 - T, z0: -D - T, x1: W / 2 + T, z1: -D });
+    // Rückwand (niedrig, Puppenhaus-Schnitt) – mit Durchgang zum Nebenraum
+    const lowWall = (x0: number, z0: number, x1: number, z1: number, collide: boolean) => {
+      const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, w = x1 - x0, d = z1 - z0;
+      vb.box(cx, 0.3, cz, w, 0.6, d, wc);
+      vb.box(cx, 0.62, cz, w + 0.02, 0.05, d + 0.02, 0xffffff);
+      if (collide) this.colliders.push({ x0, z0, x1, z1 });
+    };
+    const [bd0, bd1] = L.backDoor;
+    lowWall(-W / 2 - T, -D - T, bd0, -D, true);
+    lowWall(bd1, -D - T, W / 2 + T, -D, true);
+    // Türrahmen
+    for (const x of [bd0, bd1]) vb.box(x, 0.35, -D - T / 2, 0.08, 0.7, T + 0.06, 0x7a5a3a);
+    this.buildBackRoom(vb, lowWall);
     // Frontwand mit Fenstern und Tür
     const dx0 = L.doorX - L.doorW / 2, dx1 = L.doorX + L.doorW / 2;
     const segs: [number, number][] = [[-W / 2 - T, dx0], [dx1, W / 2 + T]];
@@ -342,7 +366,65 @@ export class Shop {
     }
   }
 
+  /** Nebenraum: hier wird Frozen Yogurt aus der Basis angerührt */
+  private buildBackRoom(vb: VB, lowWall: (x0: number, z0: number, x1: number, z1: number, collide: boolean) => void): void {
+    const B = this.layout.back;
+    const D = this.layout.D;
+    const T = 0.3;
+    // Fliesenboden (etwas höher als der Hinterhof, damit nichts flackert)
+    for (let x = B.x0; x < B.x1 - 0.01; x += 0.5) {
+      for (let z = B.z0; z < B.z1 - 0.01; z += 0.5) {
+        const k = Math.round((x - B.x0) / 0.5) + Math.round((z - B.z0) / 0.5);
+        vb.cube(x, -0.1, z, 0.5, 0.115, 0.5, k % 2 ? 0xdfe7ec : 0xf3f6f8, 'solid', 0.02);
+      }
+    }
+    // niedrige Wände (Puppenhaus-Schnitt)
+    lowWall(B.x0 - T, B.z0 - T, B.x1 + T, B.z0, false);
+    lowWall(B.x0 - T, B.z0, B.x0, -D - T, false);
+    lowWall(B.x1, B.z0, B.x1 + T, -D - T, false);
+    // Schild über dem Durchgang
+    const [bd0, bd1] = this.layout.backDoor;
+    vb.box((bd0 + bd1) / 2, 0.75, -D - T / 2, bd1 - bd0 + 0.1, 0.12, 0.06, 0x7a5a3a);
+    vb.box((bd0 + bd1) / 2, 0.75, -D - T / 2 - 0.035, bd1 - bd0 - 0.1, 0.06, 0.01, 0xfff1c9, 'glow', 0);
+    // Milchkannen in der Ecke
+    for (let i = 0; i < 3; i++) vb.box(B.x0 + 0.3 + i * 0.32, 0.25, B.z0 + 0.3, 0.26, 0.5, 0.26, 0xdfe5ea);
+  }
+
+  private buildBackStations(): void {
+    const B = this.layout.back;
+    const D = this.layout.D;
+    // Rührwerk an der Rückwand (zeigt zur Kamera)
+    this.mixer = ruehrwerkModel();
+    const mx = B.x0 + 3.0;
+    this.mixer.group.position.set(mx, 0, -D - 0.42);
+    this.mixer.group.rotation.y = Math.PI;
+    this.roomGroup.add(this.mixer.group);
+    this.colliders.push({ x0: mx - 0.6, z0: -D - 0.8, x1: mx + 0.6, z1: -D });
+    this.stations.set('ruehrwerk', { id: 'ruehrwerk', x: mx, ix: mx, iz: -D - 1.3, group: this.mixer.group, face: { x: mx, z: -D } });
+    // Basis-Kühlregal an der Seitenwand
+    const rz = -D - 1.9;
+    const regal = basisRegalModel();
+    regal.position.set(B.x1 - 0.32, 0, rz);
+    regal.rotation.y = -Math.PI / 2;
+    this.roomGroup.add(regal);
+    this.colliders.push({ x0: B.x1 - 0.62, z0: rz - 0.5, x1: B.x1, z1: rz + 0.5 });
+    this.stations.set('basisregal', { id: 'basisregal', x: B.x1 - 0.3, ix: B.x1 - 1.2, iz: rz, group: regal, face: { x: B.x1, z: rz } });
+    // Spüle (Deko)
+    const sink = sinkModel();
+    sink.position.set(B.x0 + 0.32, 0, -D - 2.2);
+    sink.rotation.y = Math.PI / 2;
+    this.roomGroup.add(sink);
+    this.colliders.push({ x0: B.x0, z0: -D - 2.75, x1: B.x0 + 0.65, z1: -D - 1.65 });
+    this.colliders.push({ x0: B.x0, z0: B.z0, x1: B.x0 + 1.15, z1: B.z0 + 0.45 });
+    // Licht
+    const p = new THREE.PointLight(0xfff4e0, 5, 7, 1.6);
+    p.position.set((B.x0 + B.x1) / 2, 2.6, (B.z0 + B.z1) / 2);
+    this.roomGroup.add(p);
+    this.lights.push(p);
+  }
+
   private buildStations(state: GameState): void {
+    this.buildBackStations();
     const L = this.layout;
     const D = L.D;
     const slotX = (i: number) => L.W / 2 - 0.75 - i * 1.1;

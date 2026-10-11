@@ -3,13 +3,16 @@ import { Character } from './character';
 import { Appearance } from './appearance';
 import { Rect } from '../world/shop';
 import { HeldItem } from '../game/orders';
-import { productModel, spoonModel } from '../world/models';
+import { productModel, spoonModel, kanisterModel } from '../world/models';
+import { VARIANT_BY_ID } from '../data/catalog';
 
 const R = 0.26;
 
 export class Player {
   ch: Character;
   held: HeldItem | null = null;
+  /** Kanister mit frisch angerührtem Joghurt (Sorte) – statt eines Produkts in der Hand */
+  carry: string | null = null;
   /** blockiert Bewegung (z.B. während des Zapfens) */
   busy = 0;
   busyLabel = '';
@@ -26,21 +29,31 @@ export class Player {
 
   setHeld(item: HeldItem | null): void {
     this.held = item;
-    this.ch.setHeld(item ? productModel(item.base, item.variant, item.toppings, item.burnt) : null);
+    if (item) this.carry = null;
+    this.ch.setHeld(item ? productModel(item.base, item.variant, item.toppings, item.burnt)
+      : this.carry ? kanisterModel(VARIANT_BY_ID.get(this.carry)?.color ?? 0xffffff) : null);
   }
+
+  setCarry(flavor: string | null): void {
+    this.held = null;
+    this.carry = flavor;
+    this.setHeld(null);
+  }
+
+  get handsFull(): boolean { return !!this.held || !!this.carry; }
 
   refreshHeld(): void { this.setHeld(this.held); }
 
   slap(): void {
     this.ch.slap();
     this.spoonT = 0.5;
-    if (!this.held) this.ch.setHeld(spoonModel());
+    if (!this.handsFull) this.ch.setHeld(spoonModel());
   }
 
   update(dt: number, input: THREE.Vector2, colliders: Rect[], bounds: (x: number, z: number) => boolean): void {
     if (this.spoonT > 0) {
       this.spoonT -= dt;
-      if (this.spoonT <= 0 && !this.held) this.ch.setHeld(null);
+      if (this.spoonT <= 0 && !this.handsFull) this.ch.setHeld(null);
     }
     let moving = false;
     if (this.busy > 0) {

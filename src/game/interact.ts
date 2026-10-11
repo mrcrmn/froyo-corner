@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import type { Game } from './game';
-import { FLAVORS, WAFFLES, COFFEES, MATCHAS, Variant, stockIdFor, BaseKind, TOPPING_BY_ID } from '../data/catalog';
+import {
+  FLAVORS, WAFFLES, COFFEES, MATCHAS, Variant, stockIdFor, BaseKind, TOPPING_BY_ID, BATCH, MACHINE_CAP, VARIANT_BY_ID,
+} from '../data/catalog';
 import { availableToppings, describeOrder } from './orders';
 import { PLAYER_LINES } from '../data/dialogue';
 import { pick } from '../core/util';
@@ -33,6 +35,7 @@ export interface ChoicePanel {
 export interface Target {
   id: string;
   label: string;
+  /** Punkt, zu dem sich der Spieler beim Benutzen dreht */
   x: number;
   z: number;
 }
@@ -49,13 +52,20 @@ const STATION_LABEL: Record<string, string> = {
   kasse: 'Kasse',
   ausgabe: 'Ausgabe',
   toppings: 'Topping-Bar',
+  ruehrwerk: 'Rührwerk',
+  basisregal: 'Basis-Kühlregal',
 };
+
+/** Sekunden fürs Anrühren eines Kanisters */
+const MIX_TIME = 4;
 
 const WAFFLE_DONE = 6.5;
 const WAFFLE_BURN = 14;
 
 export class Interactions {
   waffle: { variant: string; t: number } | null = null;
+  /** Rührwerk läuft gerade */
+  mixing = false;
   work: { t: number; max: number; label: string; done: () => void } | null = null;
   private sizzleT = 0;
 
@@ -88,6 +98,12 @@ export class Interactions {
         this.g.sfx.play('wrong');
       }
     }
+    const mixer = this.g.shop.mixer;
+    if (mixer) {
+      if (!this.work) this.mixing = false;
+      if (this.mixing) mixer.paddle.rotation.y += dt * 14;
+      (mixer.lamp.material as THREE.MeshBasicMaterial).color.set(this.mixing ? 0xffa030 : 0x55ff77);
+    }
     if (parts) {
       const mat = parts.lamp.material as THREE.MeshBasicMaterial;
       if (!this.waffle) mat.color.set(0x55ff77);
@@ -118,7 +134,7 @@ export class Interactions {
       const d = Math.hypot(p.x - st.ix, p.z - st.iz);
       if (d < bd) {
         bd = d;
-        best = { id: st.id, label: this.labelFor(st.id), x: st.x, z: st.iz };
+        best = { id: st.id, label: this.labelFor(st.id), x: st.face?.x ?? st.x, z: st.face?.z ?? st.iz - 1 };
       }
     }
     return best;
@@ -126,6 +142,13 @@ export class Interactions {
 
   private labelFor(id: string): string {
     const held = this.g.player.held;
+    const carry = this.g.player.carry;
+    if (carry) {
+      const f = VARIANT_BY_ID.get(carry);
+      if (f && id === f.machine) return `Kanister ${f.name} einfüllen`;
+      if (id === 'trash') return 'Kanister auskippen';
+      if (id === 'ruehrwerk') return 'Kanister zur Maschine bringen';
+    }
     switch (id) {
       case 'kasse': {
         const f = this.g.cm.frontCustomer();
@@ -141,7 +164,10 @@ export class Interactions {
         if (this.waffle) return this.waffle.t >= WAFFLE_DONE ? 'Waffel herausnehmen' : 'Waffel backt…';
         return 'Waffel backen';
       case 'vorratskuehlschrank':
+      case 'basisregal':
         return 'Vorrat & Einkauf öffnen';
+      case 'ruehrwerk':
+        return `Joghurt anrühren (Basis: ${this.g.state.stock.basis ?? 0})`;
       case 'getraenkekuehlschrank':
         return 'Getränkekühlschrank (Kund:innen bedienen sich)';
       default:
@@ -155,7 +181,8 @@ export class Interactions {
     if (!t) return;
     const g = this.g;
     const held = g.player.held;
-    g.player.faceTo(t.x, t.z - (t.id === 'thief' ? 0 : 1));
+    g.player.faceTo(t.x, t.z);
+    if (g.player.carry && t.id !== 'thief' && this.useCarry(t.id)) return;
     switch (t.id) {
       case 'thief':
         g.player.slap();
@@ -183,7 +210,11 @@ export class Interactions {
         return;
       case 'vorratskuehlschrank':
       case 'getraenkekuehlschrank':
+      case 'basisregal':
         g.ui.openPanel('lager');
+        return;
+      case 'ruehrwerk':
+        this.openMixer();
         return;
       case 'toppings':
         if (!held || (held.base !== 'froyo' && held.base !== 'waffle')) {
@@ -218,6 +249,67 @@ export class Interactions {
         this.openBase('matcha', 'matchabar', MATCHAS);
         return;
     }
+  }
+
+  /** Mit Kanister in der Hand: einfüllen, auskippen – oder freundlich daran erinnern */
+  private useCarry(id: string): boolean {
+    const g = this.g;
+    const f = VARIANT_BY_ID.get(g.player.carry!)!;
+    if (id === f.machine) {
+      const key = stockIdFor('froyo', f.id);
+      g.state.stock[key] = (g.state.stock[key] ?? 0) + BATCH;
+      g.player.setCarry(null);
+      g.sfx.play('pour');
+      const st = g.shop.stations.get(id);
+      if (st) g.floatText(new THREE.Vector3(st.x, 2.2, st.iz - 0.8), `+${BATCH} ${f.name}`, '#7fd6b4');
+      return true;
+    }
+    if (id === 'trash') {
+      g.player.setCarry(null);
+      g.sfx.play('trash');
+      g.toast(`Kanister ${f.name} ausgekippt.`);
+      return true;
+    }
+    if (id === 'kasse' || id === 'basisregal') return false;
+    g.toast(`Erst den Kanister in ${id === 'ruehrwerk' ? 'die Maschine' : 'den ' + STATION_LABEL[f.machine]} füllen.`);
+    return true;
+  }
+
+  /** Rührwerk im Nebenraum: Basis + Sorte → ein Kanister für Zapfer bzw. Eismaschine */
+  openMixer(): void {
+    const g = this.g;
+    if (g.player.held) { g.toast('Erst die Hände frei machen – ausgeben oder wegwerfen.'); return; }
+    const s = g.state;
+    const basis = s.stock.basis ?? 0;
+    const vs = FLAVORS.filter((f) => s.unlocked.includes(f.id) && s.equipment.includes(f.machine));
+    g.ui.showChoice({
+      title: 'Rührwerk',
+      station: 'ruehrwerk',
+      hint: basis < BATCH ? `Zu wenig Basis (${basis}) – im Kühlregal nachbestellen.`
+        : `Basis: ${basis} · ein Kanister = ${BATCH} Portionen. Danach zur Maschine tragen.`,
+      options: vs.map((f) => {
+        const key = stockIdFor('froyo', f.id);
+        const n = s.stock[key] ?? 0;
+        const full = n >= MACHINE_CAP;
+        return {
+          label: f.name,
+          sub: full ? 'Maschine ist voll' : `in der Maschine: ${n}`,
+          icon: productUrl({ base: 'froyo', variant: f.id, toppings: [] }),
+          badge: String(n),
+          disabled: basis < BATCH || full,
+          action: () => {
+            if ((s.stock.basis ?? 0) < BATCH) return;
+            s.stock.basis -= BATCH;
+            g.sfx.play('pour');
+            this.mixing = true;
+            this.work = {
+              t: 0, max: MIX_TIME, label: `${f.name} anrühren`,
+              done: () => { this.mixing = false; g.player.setCarry(f.id); g.sfx.play('ding'); },
+            };
+          },
+        };
+      }),
+    });
   }
 
   private openBase(base: BaseKind, station: string, list: Variant[]): void {

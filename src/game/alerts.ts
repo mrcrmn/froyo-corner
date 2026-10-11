@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import type { Game } from './game';
-import { FLAVORS, WAFFLES, MATCHAS, DRINKS, stockDefs } from '../data/catalog';
+import { FLAVORS, WAFFLES, MATCHAS, DRINKS, stockDefs, BATCH } from '../data/catalog';
 import { availableToppings } from './orders';
 
 export type AlertLevel = 'low' | 'out';
@@ -9,6 +9,11 @@ export interface StationAlert { id: string; pos: THREE.Vector3; level: AlertLeve
 /** ab hier gilt ein Vorrat als knapp */
 const LOW = 5;
 const NAME = new Map(stockDefs().map((d) => [d.id, d.name]));
+/** selbst angerührt statt eingekauft */
+const MADE = new Set(stockDefs().filter((d) => d.made).map((d) => d.id));
+/** Basis reicht erst ab einem ganzen Kanister */
+const outBelow = (id: string) => (id === 'basis' ? BATCH : 1);
+const lowAt = (id: string) => (id === 'basis' ? BATCH * 2 : LOW);
 
 /**
  * Vorrats-Warnungen: „!“ über den Geräten, deren Vorrat knapp oder leer ist,
@@ -36,6 +41,7 @@ export class StockAlerts {
       case 'matchabar': return MATCHAS.filter((m) => un(m.id)).map((m) => 'matcha_' + m.id);
       case 'toppings': return availableToppings(s).map((t) => 'top_' + t.id);
       case 'getraenkekuehlschrank': return DRINKS.filter((d) => un(d.id)).map((d) => 'drink_' + d.id);
+      case 'ruehrwerk': return ['basis'];
       default: return [];
     }
   }
@@ -52,8 +58,8 @@ export class StockAlerts {
     for (const st of g.shop.stations.values()) {
       const ids = this.stockFor(st.id);
       if (!ids.length) continue;
-      const empty = ids.filter((id) => (stock[id] ?? 0) <= 0);
-      const low = ids.filter((id) => (stock[id] ?? 0) > 0 && (stock[id] ?? 0) <= LOW);
+      const empty = ids.filter((id) => (stock[id] ?? 0) < outBelow(id));
+      const low = ids.filter((id) => (stock[id] ?? 0) >= outBelow(id) && (stock[id] ?? 0) <= lowAt(id));
       for (const id of ids) {
         const lv: AlertLevel | null = empty.includes(id) ? 'out' : low.includes(id) ? 'low' : null;
         const before = this.told.get(id);
@@ -80,11 +86,14 @@ export class StockAlerts {
     const outs = news.filter((n) => n.level === 'out');
     const lows = news.filter((n) => n.level === 'low');
     const names = (list: { id: string }[]) => list.map((n) => NAME.get(n.id) ?? n.id).join(', ');
-    if (outs.length) {
-      g.toast(`❗ ${names(outs)} ist alle – im 📦 Lager nachbestellen!`, 'bad');
-      g.sfx.play('wrong');
-    } else if (lows.length) {
-      g.toast(`⚠️ ${names(lows)} wird knapp.`);
+    const made = outs.filter((n) => MADE.has(n.id));
+    const bought = outs.filter((n) => !MADE.has(n.id));
+    if (made.length) g.toast(`❗ ${names(made)} ist alle – im Nebenraum 🥣 frisch anrühren!`, 'bad');
+    if (bought.length) g.toast(`❗ ${names(bought)} ist alle – im 📦 Lager nachbestellen!`, 'bad');
+    if (outs.length) g.sfx.play('wrong');
+    else if (lows.length) {
+      const m = lows.filter((n) => MADE.has(n.id));
+      g.toast(`⚠️ ${names(lows)} wird knapp.${m.length === lows.length ? ' Zeit, frischen anzurühren.' : ''}`);
     }
   }
 }

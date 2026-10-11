@@ -193,11 +193,21 @@ export const LEVELS: LevelDef[] = [
 ];
 
 /** Einkauf: Portionen pro Packung, Preis pro Packung */
-export interface StockDef { id: string; name: string; pack: number; cost: number; color: number; group: string }
+export interface StockDef {
+  id: string; name: string; pack: number; cost: number; color: number; group: string;
+  /** wird selbst hergestellt (Nebenraum), nicht eingekauft */
+  made?: boolean;
+}
+
+/** Portionen pro angerührtem Kanister Joghurt */
+export const BATCH = 12;
+/** ab diesem Füllstand nimmt eine Sorte keinen neuen Kanister mehr an */
+export const MACHINE_CAP = 36;
 
 export function stockDefs(): StockDef[] {
   const out: StockDef[] = [];
-  for (const f of FLAVORS) out.push({ id: 'froyo_' + f.id, name: 'Joghurt ' + f.name, pack: 20, cost: 22, color: f.color, group: 'Frozen Yogurt' });
+  out.push({ id: 'basis', name: 'Joghurt-Basis', pack: BATCH * 3, cost: 27, color: 0xf8f3e8, group: 'Frozen Yogurt' });
+  for (const f of FLAVORS) out.push({ id: 'froyo_' + f.id, name: 'Joghurt ' + f.name, pack: 20, cost: 22, color: f.color, group: 'Frozen Yogurt', made: true });
   for (const w of WAFFLES) out.push({ id: 'waffle_' + w.id, name: w.name + ' (Teig)', pack: 15, cost: 15, color: w.color, group: 'Waffeln' });
   out.push({ id: 'coffee', name: 'Kaffeebohnen & Milch', pack: 25, cost: 14, color: 0x5a3a24, group: 'Kaffee' });
   for (const m of MATCHAS) out.push({ id: 'matcha_' + m.id, name: m.name + ' (Zutaten)', pack: 20, cost: 18, color: m.color, group: 'Matcha' });
