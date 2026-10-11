@@ -68,9 +68,10 @@ export class TouchControls {
       this.stickId = e.pointerId;
       z.setPointerCapture(e.pointerId);
       const r = z.getBoundingClientRect();
-      // Basis dort, wo der Daumen landet – aber ganz im Bild
-      this.ox = Math.min(Math.max(e.clientX, r.left + STICK_R + 8), r.right - STICK_R - 8);
-      this.oy = Math.min(Math.max(e.clientY, r.top + STICK_R + 8), r.bottom - STICK_R - 8);
+      // Mitte genau dort, wo der Daumen landet. Nicht an den Rand klemmen: sonst stünde der
+      // Daumen schon neben der Mitte, und eine Richtung liefe sofort, die andere kaum.
+      this.ox = e.clientX;
+      this.oy = e.clientY;
       this.base.style.left = `${this.ox - r.left}px`;
       this.base.style.top = `${this.oy - r.top}px`;
       this.base.style.bottom = 'auto';
