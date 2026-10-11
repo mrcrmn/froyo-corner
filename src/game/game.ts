@@ -13,6 +13,7 @@ import { Player } from '../entities/player';
 import { CustomerManager } from './customers';
 import { Interactions } from './interact';
 import { BuildMode } from './build';
+import { StockAlerts } from './alerts';
 import { StaffWorker } from '../entities/staff';
 import { Thief } from '../entities/thief';
 import { Character } from '../entities/character';
@@ -55,6 +56,7 @@ export class Game implements Ctx {
   readonly cm: CustomerManager;
   readonly interact: Interactions;
   readonly build: BuildMode;
+  readonly alerts: StockAlerts;
   staff: StaffWorker[] = [];
   thief: Thief | null = null;
 
@@ -98,6 +100,8 @@ export class Game implements Ctx {
     this.cm = new CustomerManager(this);
     this.interact = new Interactions(this);
     this.build = new BuildMode(this);
+    this.alerts = new StockAlerts(this);
+    this.bubbles.onAlertClick = () => { if (!this.build.active) this.ui.openPanel('lager'); };
     this.syncStaff();
 
     this.sfx.volume = state.settings.sfx;
@@ -468,6 +472,8 @@ export class Game implements Ctx {
     this.build.update();
     this.renderer.render(this.scene, this.camera);
     this.bubbles.setMarkers(this.build.active && !this.build.sel ? this.shop.furnitureMeshes.values() : []);
+    this.alerts.update(real);
+    this.bubbles.setAlerts(this.build.active ? [] : this.alerts.alerts);
     this.bubbles.update(real, this.camera, this.width, this.height);
     this.updateBars();
     this.ui.update(real);

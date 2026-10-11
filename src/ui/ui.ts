@@ -103,6 +103,7 @@ export class UI {
       const a = b.dataset.hud!;
       this.hud.classList.toggle('menu-open', a === 'more' && !this.hud.classList.contains('menu-open'));
       if (a === 'more') return;
+      if (a === 'tickets') { this.ticketsCollapsed = !this.ticketsCollapsed; return; }
       if (a === 'speed') g.cycleSpeed();
       else if (a === 'pause') g.togglePause();
       else if (a === 'open') g.openNow();
@@ -271,6 +272,24 @@ export class UI {
 
   private lastBuildStatus = '';
   private lastTickets = '';
+  private ticketsCollapsed = false;
+
+  /** Handy: Bestellungen als kleines Bilder-Raster mit Geduldsbalken, einklappbar */
+  private compactTickets(): string {
+    const tickets = this.g.cm.tickets;
+    const head = `<button class="tickets-title" data-hud="tickets">🧾 ${tickets.length} ${this.ticketsCollapsed ? '▸' : '▾'}</button>`;
+    if (this.ticketsCollapsed) return head;
+    // höchstens zwei Reihen, damit der Aktionsknopf unten rechts frei bleibt
+    const max = tickets.length > 6 ? 5 : 6;
+    const tiles = tickets.slice(0, max).map((t) => {
+      const frac = Math.max(0, t.customer.patience / t.customer.patienceMax);
+      const what = describeOrder(t.order);
+      const col = frac > 0.5 ? '#6fd08c' : frac > 0.25 ? '#ffc658' : '#ff6b7d';
+      return `<div class="tk${frac < 0.3 ? ' urgent' : ''}">${productImg(t.order, 'px-m', what)}${t.assignee ? '<span class="tk-cook">👩‍🍳</span>' : ''}<i style="width:${Math.round(frac * 10) * 10}%;background:${col}"></i></div>`;
+    }).join('');
+    const more = tickets.length > max ? `<div class="tk-more">+${tickets.length - max}</div>` : '';
+    return head + `<div class="tk-grid">${tiles}${more}</div>`;
+  }
   private lastHeld = '';
 
   /** Anleitung in der Bauleiste – passend dazu, ob gerade etwas in der Hand ist */
@@ -897,14 +916,12 @@ export class UI {
     this.refs.openBtn.style.display = g.phase === 'prep' ? '' : 'none';
     // Tickets
     const tickets = g.cm.tickets;
-    const th = tickets.length
-      ? `<div class="tickets-title">🧾 Bestellungen (${tickets.length})</div>` + tickets.slice(0, 7).map((t) => {
+    const th = !tickets.length ? '' : isTouch() ? this.compactTickets() : `<div class="tickets-title">🧾 Bestellungen (${tickets.length})</div>` + tickets.slice(0, 7).map((t) => {
         const wait = Math.floor(g.time - t.t);
         const frac = t.customer.patience / t.customer.patienceMax;
         const what = describeOrder(t.order);
         return `<div class="ticket ${frac < 0.3 ? 'urgent' : ''}" title="${esc(what)}">${productImg(t.order, 'px-m', what)}<div class="ticket-txt"><b>${esc(t.customer.name)}</b>${t.assignee ? ' <span class="tag">👩‍🍳</span>' : ''}<br><span class="small">${esc(what)} · ${wait}s</span></div></div>`;
-      }).join('') + (tickets.length > 7 ? `<div class="small">+${tickets.length - 7} weitere</div>` : '')
-      : '';
+      }).join('') + (tickets.length > 7 ? `<div class="small">+${tickets.length - 7} weitere</div>` : '');
     if (this.lastTickets !== th) { this.lastTickets = th; this.refs.tickets.innerHTML = th; }
     this.refs.tickets.style.display = th ? '' : 'none';
     // Hand

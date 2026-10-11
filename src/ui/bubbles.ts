@@ -13,6 +13,9 @@ export class Bubbles {
   private floaters: Floater[] = [];
   private bars = new Map<THREE.Object3D, HTMLDivElement>();
   private markers = new Map<THREE.Object3D, HTMLDivElement>();
+  private alerts = new Map<string, { el: HTMLButtonElement; pos: THREE.Vector3 }>();
+  /** Klick auf ein „!“ über einem Gerät */
+  onAlertClick: (id: string) => void = () => {};
 
   constructor(parent: HTMLElement) {
     this.root = document.createElement('div');
@@ -76,6 +79,27 @@ export class Bubbles {
     }
   }
 
+  /** Vorrats-Warnung „!“ über Geräten (gelb = knapp, rot = leer) */
+  setAlerts(list: { id: string; pos: THREE.Vector3; level: 'low' | 'out'; text: string }[]): void {
+    const keep = new Set(list.map((a) => a.id));
+    for (const [id, a] of this.alerts) if (!keep.has(id)) { a.el.remove(); this.alerts.delete(id); }
+    for (const a of list) {
+      let cur = this.alerts.get(a.id);
+      if (!cur) {
+        const el = document.createElement('button');
+        el.textContent = '!';
+        el.addEventListener('click', () => this.onAlertClick(a.id));
+        this.root.appendChild(el);
+        cur = { el, pos: a.pos };
+        this.alerts.set(a.id, cur);
+      }
+      cur.pos.copy(a.pos);
+      const cls = `stock-alert ${a.level}`;
+      if (cur.el.className !== cls) cur.el.className = cls;
+      if (cur.el.title !== a.text) cur.el.title = a.text;
+    }
+  }
+
   pruneBars(keep: Set<THREE.Object3D>): void {
     for (const [a, el] of this.bars) if (!keep.has(a)) { el.remove(); this.bars.delete(a); }
   }
@@ -104,6 +128,7 @@ export class Bubbles {
       a.getWorldPosition(v);
       place(el, v.clone(), 14);
     }
+    for (const a of this.alerts.values()) place(a.el, a.pos.clone());
     for (const [o, el] of this.markers) {
       o.getWorldPosition(v);
       v.y += 1.25;

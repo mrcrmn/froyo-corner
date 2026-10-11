@@ -223,6 +223,20 @@ img.px.burnt { filter: brightness(0.45) sepia(0.6); }
 .build-head { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
 .build-head .small { flex: 1; }
 .build-status b { color: var(--pink-d); }
+/* Vorrats-Warnung über Geräten */
+.stock-alert {
+  pointer-events: auto; position: absolute; left: 0; top: 0; will-change: transform;
+  width: 30px; height: 30px; min-width: 0; padding: 0; border-radius: 50%;
+  font-size: 19px; font-weight: 900; line-height: 1; color: var(--border);
+  background: #ffd84a; border: 2.5px solid var(--border); box-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
+}
+.stock-alert.out { background: #ff5d6e; color: #fff; animation: alert-bounce 0.9s ease-in-out infinite; }
+.stock-alert.out::before {
+  content: ''; position: absolute; inset: -6px; border-radius: 50%; border: 3px solid #ff5d6e;
+  animation: alert-ring 0.9s ease-out infinite;
+}
+@keyframes alert-bounce { 50% { margin-top: -7px; } }
+@keyframes alert-ring { from { opacity: 0.9; transform: scale(0.8); } to { opacity: 0; transform: scale(1.6); } }
 .move-marker {
   position: absolute; left: 0; top: 0; will-change: transform;
   width: 24px; height: 24px; line-height: 21px; text-align: center; font-size: 15px;
@@ -387,7 +401,15 @@ img.px.burnt { filter: brightness(0.45) sepia(0.6); }
 .touch .hud.choosing .hud-bottom { display: none; }
 .touch .hud.choosing ~ .choice { bottom: 10px; max-height: calc(100% - 20px); }
 .touch .choice-hint { margin-bottom: 4px; }
-.touch .tickets { max-height: calc(100% - 270px); }
+/* Bestellungen am Handy: kompaktes Bilder-Raster, per Tipp einklappbar */
+.touch .tickets { width: auto; padding: 4px; pointer-events: auto; max-height: none; }
+.touch .tickets-title { display: block; width: 100%; margin: 0; padding: 3px 8px; font-size: 0.95em; box-shadow: none; }
+.tk-grid { display: grid; grid-template-columns: repeat(3, 48px); gap: 4px; margin-top: 4px; }
+.tk { position: relative; width: 48px; height: 52px; background: #fff8ef; border: 2px solid #e3cdbd; border-radius: 6px; display: flex; justify-content: center; }
+.tk.urgent { border-color: var(--red); animation: alert-bounce 1.2s ease-in-out infinite; }
+.tk i { position: absolute; left: 3px; bottom: 2px; height: 4px; border-radius: 2px; max-width: calc(100% - 6px); }
+.tk-cook { position: absolute; right: -4px; top: -6px; font-size: 13px; }
+.tk-more { display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--muted); }
 .touch .panel { max-height: calc(100% - 16px); }
 .touch .panel-wrap { padding: 8px; }
 
@@ -415,6 +437,6 @@ img.px.burnt { filter: brightness(0.45) sepia(0.6); }
   .touch .hud-bottom { bottom: 150px; max-width: 94%; }
   .touch .choice { bottom: 215px; max-width: 94%; max-height: calc(100% - 330px); }
   .touch .hud.choosing ~ .choice { bottom: 128px; max-height: calc(100% - 140px); }
-  .touch .tickets { max-height: calc(100% - 330px); width: 170px; }
+  .touch .tickets { max-height: none; width: auto; }
   .touch .stick-zone { width: 55%; height: 40%; }
 }
