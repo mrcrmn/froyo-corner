@@ -12,6 +12,7 @@ export class Bubbles {
   private bubbles = new Map<THREE.Object3D, Bubble>();
   private floaters: Floater[] = [];
   private bars = new Map<THREE.Object3D, HTMLDivElement>();
+  private markers = new Map<THREE.Object3D, HTMLDivElement>();
 
   constructor(parent: HTMLElement) {
     this.root = document.createElement('div');
@@ -19,14 +20,16 @@ export class Bubbles {
     parent.appendChild(this.root);
   }
 
-  say(anchor: THREE.Object3D, text: string, kind = 'normal'): void {
+  /** `html` (z.B. Pixel-Art der Bestellung) ersetzt den Text in der Blase; `text` bleibt Alternativtext */
+  say(anchor: THREE.Object3D, text: string, kind = 'normal', html?: string): void {
     const old = this.bubbles.get(anchor);
     if (old) old.el.remove();
     const el = document.createElement('div');
     el.className = `bubble bubble-${kind}`;
-    el.innerHTML = escapeHtml(text).replace(/\n/g, '<br>');
+    el.innerHTML = html ?? escapeHtml(text).replace(/\n/g, '<br>');
+    if (html) { el.classList.add('bubble-pic'); el.title = text; }
     this.root.appendChild(el);
-    this.bubbles.set(anchor, { el, anchor, life: 2.8 + text.length * 0.05 + (kind === 'order' ? 3 : 0) });
+    this.bubbles.set(anchor, { el, anchor, life: 2.8 + text.length * 0.05 + (kind === 'order' ? 3 : 0) + (html ? 2 : 0) });
   }
 
   floatText(pos: THREE.Vector3, text: string, color = '#ffe066'): void {
@@ -59,6 +62,20 @@ export class Bubbles {
     if (ic.textContent !== icon) ic.textContent = icon;
   }
 
+  /** Kleine ✥-Markierung über diesen Objekten (Baumodus: „lässt sich verschieben“) */
+  setMarkers(objs: Iterable<THREE.Object3D>): void {
+    const keep = new Set(objs);
+    for (const [o, el] of this.markers) if (!keep.has(o)) { el.remove(); this.markers.delete(o); }
+    for (const o of keep) {
+      if (this.markers.has(o)) continue;
+      const el = document.createElement('div');
+      el.className = 'move-marker';
+      el.textContent = '✥';
+      this.root.appendChild(el);
+      this.markers.set(o, el);
+    }
+  }
+
   pruneBars(keep: Set<THREE.Object3D>): void {
     for (const [a, el] of this.bars) if (!keep.has(a)) { el.remove(); this.bars.delete(a); }
   }
@@ -86,6 +103,11 @@ export class Bubbles {
       if (!isInScene(a)) { el.remove(); this.bars.delete(a); continue; }
       a.getWorldPosition(v);
       place(el, v.clone(), 14);
+    }
+    for (const [o, el] of this.markers) {
+      o.getWorldPosition(v);
+      v.y += 1.25;
+      place(el, v.clone());
     }
     this.floaters = this.floaters.filter((f) => {
       f.life -= dt;

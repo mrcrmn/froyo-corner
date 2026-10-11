@@ -3,8 +3,8 @@ import type { Game } from './game';
 import { PLACEABLE_BY_ID } from '../data/catalog';
 import { placeableModel } from '../world/models';
 import { disposeObject, setGhost } from '../core/voxel';
-import { money } from '../core/util';
 import { isTouch } from '../ui/touch';
+import { money } from '../core/util';
 
 type Sel =
   | { mode: 'new'; type: string; fromInventory: boolean }
@@ -36,10 +36,8 @@ export class BuildMode {
     this.cancel();
     this.rebuildGrid();
     this.grid.visible = on;
+    // Anleitung steht in der Bauleiste (passend zum jeweiligen Schritt)
     this.g.ui.setBuildMode(on);
-    if (on) this.g.toast(isTouch()
-      ? 'Baumodus: Möbel antippen, ziehen & loslassen · ⟳ drehen · 💰 verkaufen · 📦 ins Lager'
-      : 'Baumodus: Möbel anklicken zum Verschieben · R drehen · X verkaufen · Q ins Lager · Esc beenden');
   }
 
   private rebuildGrid(): void {
@@ -103,6 +101,22 @@ export class BuildMode {
     }
   }
 
+  /** Möbelstück unter einem Bildschirmpunkt (auch außerhalb des Baumodus) */
+  furnitureAt(cx: number, cy: number): number | null {
+    const r = this.g.renderer.domElement.getBoundingClientRect();
+    this.mouse.set(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1);
+    this.ray.setFromCamera(this.mouse, this.g.camera);
+    return this.pickFurniture();
+  }
+
+  /** Baumodus starten und dieses Möbelstück gleich in die Hand nehmen */
+  grab(uid: number, cx: number, cy: number): void {
+    if (!this.active) this.toggle(true);
+    if (!this.active) return;
+    this.pointerMove(cx, cy);
+    this.pickUp(uid);
+  }
+
   private pickFurniture(): number | null {
     const meshes = [...this.g.shop.furnitureMeshes.values()];
     const hits = this.ray.intersectObjects(meshes, true);
@@ -164,6 +178,8 @@ export class BuildMode {
     }
     this.sel = { mode: 'move', uid, type: it.type, ox: it.x, oz: it.z, orot: it.rot };
     this.rot = it.rot;
+    // Geist erst einmal genau dort, wo das Möbelstück steht (nicht unter dem Finger versetzt)
+    this.pos.set(it.x, 0, it.z);
     const mesh = g.shop.furnitureMeshes.get(uid);
     if (mesh) mesh.visible = false;
     this.makeGhost(it.type);
@@ -179,8 +195,25 @@ export class BuildMode {
   }
 
   rotate(): void {
+    const g = this.g;
     this.rot = (this.rot + Math.PI / 2) % (Math.PI * 2);
-    this.g.sfx.play('click');
+    g.sfx.play('click');
+    // Touch: angetipptes Möbelstück gleich an Ort und Stelle drehen – sonst müsste man es danach noch abstellen
+    const sel = this.sel;
+    if (sel?.mode !== 'move' || !isTouch()) return;
+    const it = g.state.placed.find((p) => p.uid === sel.uid);
+    if (!it) return;
+    this.pos.set(it.x, 0, it.z);
+    if (!g.shop.canPlace(g.state, sel.type, it.x, it.z, this.rot, sel.uid)) {
+      g.toast('So gedreht passt es hier nicht – zieh es erst an eine freiere Stelle.', 'bad');
+      return;
+    }
+    it.rot = this.rot;
+    this.sel = { ...sel, orot: this.rot };
+    this.afterChange();
+    // in der Hand behalten, damit man weiterdrehen kann
+    const mesh = g.shop.furnitureMeshes.get(sel.uid);
+    if (mesh) mesh.visible = false;
   }
 
   /** ausgewähltes (oder überfahrenes) Möbelstück verkaufen */

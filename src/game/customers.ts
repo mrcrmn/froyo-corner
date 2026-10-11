@@ -4,7 +4,8 @@ import { randomAppearance } from '../entities/appearance';
 import { Persona, LINES, GENERIC, FIRST_NAMES, PERSONA_LABEL } from '../data/dialogue';
 import { DRINKS, FAIR_PRICE, stockIdFor } from '../data/catalog';
 import { P2 } from '../core/path';
-import { chance, clamp, pick, pickWeighted, rand, randi } from '../core/util';
+import { chance, clamp, escapeHtml, pick, pickWeighted, rand, randi } from '../core/util';
+import { orderImg } from '../ui/pixelart';
 import { Ctx, Ticket } from './context';
 import { HeldItem, OrderItem, exactMatch, generateOrder, matchScore, orderPrice, fairPriceOf, describeOrder } from './orders';
 import { Seat, TableInfo } from '../world/shop';
@@ -320,8 +321,9 @@ export class CustomerManager {
     this.ctx.earn(total, c.ch.position.clone().setY(2.2), 'Bezahlt');
     this.revenueToday += total;
     s.stats.revenue += total;
-    const line = pick(LINES[c.persona].order);
-    this.ctx.say(c.ch, `${line}\n» ${describeOrder(order)}${c.drink ? ' + Getränk' : ''}`, 'order');
+    // Bestellung als Bild statt Spruch + Text – auf einen Blick erkennbar
+    const what = describeOrder(order) + (c.drink ? ' + Getränk' : '');
+    this.ctx.say(c.ch, what, 'order', orderImg(order, c.drink, 'px-l', what));
     if (ratio > 1.3 && chance(0.5)) setTimeout(() => this.ctx.say(c.ch, pick(GENERIC.expensive)), 2200);
     else if (ratio < 0.8 && chance(0.5)) setTimeout(() => this.ctx.say(c.ch, pick(GENERIC.cheap), 'happy'), 2200);
     const t: Ticket = { id: this.ticketId++, customer: c, order, price, t: this.ctx.time, assignee: null, blockedUntil: 0 };
@@ -392,7 +394,10 @@ export class CustomerManager {
       this.finishPickup(c, held);
       return { ok: true, customer: c };
     }
-    this.ctx.say(c.ch, pick(LINES[c.persona].wrong) + '\nIch wollte: ' + describeOrder(c.order!), 'angry');
+    const wanted = describeOrder(c.order!);
+    const moan = pick(LINES[c.persona].wrong);
+    this.ctx.say(c.ch, moan + '\nIch wollte: ' + wanted, 'angry',
+      `${escapeHtml(moan)}<br><span class="small">Ich wollte:</span><br>${orderImg(c.order!, null, 'px-l', wanted)}`);
     c.patience -= c.patienceMax * 0.2;
     return { ok: false, customer: c };
   }

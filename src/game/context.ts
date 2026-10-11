@@ -33,7 +33,7 @@ export interface Ctx {
   sfx: Sfx;
   /** echte Sekunden seit Spielstart (skaliert mit Spieltempo) */
   time: number;
-  say(ch: Character, text: string, kind?: 'normal' | 'order' | 'angry' | 'happy' | 'thief'): void;
+  say(ch: Character, text: string, kind?: 'normal' | 'order' | 'angry' | 'happy' | 'thief', html?: string): void;
   floatText(pos: THREE.Vector3, text: string, color?: string): void;
   toast(text: string, kind?: 'info' | 'good' | 'bad'): void;
   earn(amount: number, pos?: THREE.Vector3, label?: string): void;

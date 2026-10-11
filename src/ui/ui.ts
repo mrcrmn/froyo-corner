@@ -7,6 +7,7 @@ import {
 import { STAFF_NAMES, STAFF_TRAITS } from '../data/dialogue';
 import { avgRating, saveState, clearSave, StaffMember, StaffRole } from '../game/state';
 import { describeOrder } from '../game/orders';
+import { productImg } from './pixelart';
 import {
   randomAppearance, Appearance, SKIN_TONES, HAIR_COLORS, CLOTH_COLORS, PANTS_COLORS, SHOE_COLORS,
   HAIR_STYLES, HATS, SHIRTS, PANTS, GLASSES, ACCESSORIES, LABELS,
@@ -180,6 +181,7 @@ export class UI {
   closeChoice(): void {
     this.choice = null;
     this.choiceEl.classList.remove('show');
+    this.hud.classList.remove('choosing');
   }
 
   private runChoice(i: number): void {
@@ -195,9 +197,17 @@ export class UI {
     if (!p) return;
     this.actions.clear();
     if (this.panel) this.renderPanel();
-    const opts = p.options.map((o, i) => `
+    const key = (i: number) => (i < 9 ? i + 1 : i === 9 ? 0 : '');
+    const tiles = p.options.some((o) => o.icon);
+    const opts = tiles ? p.options.map((o, i) => `
+      <button class="opt tile${o.picked ? ' picked' : ''}" data-a="${this.act(() => this.runChoice(i))}" ${o.disabled ? 'disabled' : ''} title="${esc(o.label + (o.sub ? ' · ' + o.sub : ''))}">
+        <span class="key">${key(i)}</span>
+        ${o.badge !== undefined ? `<span class="tile-badge">${o.picked ? '✓' : esc(o.badge)}</span>` : ''}
+        ${o.icon ? `<img class="px px-m" src="${o.icon}" alt="" draggable="false">` : ''}
+        <span class="tile-name">${esc(o.label)}</span>
+      </button>`).join('') : p.options.map((o, i) => `
       <button class="opt" data-a="${this.act(() => this.runChoice(i))}" ${o.disabled ? 'disabled' : ''}>
-        <span class="key">${i < 9 ? i + 1 : i === 9 ? 0 : ''}</span>
+        <span class="key">${key(i)}</span>
         ${o.color !== undefined ? `<span class="swatch" style="background:${hex(o.color)}"></span>` : ''}
         <span class="opt-label">${esc(o.label)}</span>
         ${o.sub ? `<span class="opt-sub">${esc(o.sub)}</span>` : ''}
@@ -208,12 +218,14 @@ export class UI {
       : this.btn('✕', () => this.closeChoice(), { cls: 'choice-close', title: 'Schließen' });
     this.choiceEl.innerHTML = `
       <div class="choice-head">
+        ${p.icon ? `<img class="px px-l choice-icon" src="${p.icon}" alt="" draggable="false">` : ''}
         <div class="choice-title">${esc(p.title)} <span class="small kh">· Zahl drücken oder klicken · Esc schließt</span></div>
         ${close}
       </div>
       ${p.hint ? `<div class="choice-hint">${esc(p.hint)}</div>` : ''}
-      <div class="opts">${opts}</div>`;
+      <div class="opts${tiles ? ' tiles' : ''}">${opts}</div>`;
     this.choiceEl.classList.add('show');
+    this.hud.classList.add('choosing');
   }
 
   // ------------------------------------------------------------ Baumodus
@@ -241,8 +253,7 @@ export class UI {
       })).join('');
     this.buildEl.innerHTML = `
       <div class="build-head"><b>🔨 Baumodus</b>
-        <span class="small kh">Klick: platzieren/aufheben · Rechtsklick/R: drehen · X: verkaufen (50 %) · Q: ins Lager · Esc: abbrechen</span>
-        <span class="small th">Möbel antippen, ziehen &amp; loslassen</span>
+        <span class="small build-status" data-r="buildStatus"></span>
         <span class="build-tools">
           ${this.btn('⟳', () => g.build.rotate(), { title: 'Drehen (R)' })}
           ${this.btn('📦', () => g.build.store(), { title: 'Ins Lager (Q)' })}
@@ -253,6 +264,36 @@ export class UI {
       </div>
       ${inv ? `<div class="build-row"><span class="small">Im Lager:</span> ${inv}</div>` : ''}
       <div class="build-row scroll">${quick}</div>`;
+    this.refs.buildStatus = this.buildEl.querySelector('.build-status')!;
+    this.lastBuildStatus = '';
+    this.updateBuildStatus();
+  }
+
+  private lastBuildStatus = '';
+  private lastTickets = '';
+  private lastHeld = '';
+
+  /** Anleitung in der Bauleiste – passend dazu, ob gerade etwas in der Hand ist */
+  private updateBuildStatus(): void {
+    const b = this.g.build;
+    if (!b.active || !this.refs.buildStatus) return;
+    const t = isTouch();
+    const sel = b.sel;
+    const html = !sel
+      ? (t ? '👆 Tippe ein Möbelstück mit <b>✥</b> an und zieh es an seinen neuen Platz – oder kauf unten etwas Neues.'
+        : '👆 Klick auf ein Möbelstück mit <b>✥</b>, um es zu verschieben – oder kauf unten etwas Neues. <span class="kh">Esc: beenden</span>')
+      : sel.mode === 'move'
+        ? (t ? '✋ Zieh es an die neue Stelle · ⟳ dreht es direkt hier · 📦 ins Lager · 💰 verkaufen'
+          : '✋ Klick zum Abstellen · Rechtsklick/R: drehen · Q: ins Lager · X: verkaufen (50 %) · Esc: zurück')
+        : (t ? '✋ Tipp oder zieh dorthin, wo es stehen soll · ⟳ drehen · ✕ abbrechen'
+          : '✋ Klick zum Platzieren · Rechtsklick/R: drehen · Esc: abbrechen');
+    if (html === this.lastBuildStatus) return;
+    this.lastBuildStatus = html;
+    this.refs.buildStatus.innerHTML = html;
+    // Werkzeuge nur anbieten, wenn sie gerade etwas tun
+    this.buildEl.querySelectorAll<HTMLButtonElement>('.build-tools button').forEach((btn, i) => {
+      btn.disabled = !sel || ((i === 1 || i === 2) && sel.mode !== 'move');
+    });
   }
 
   // ------------------------------------------------------------ Panels
@@ -821,6 +862,7 @@ export class UI {
 
   update(dt: number): void {
     const g = this.g;
+    this.updateBuildStatus();
     // Auswahl schließen, wenn man sich entfernt hat
     if (this.choice) {
       const st = g.shop.stations.get(this.choice.station);
@@ -859,15 +901,16 @@ export class UI {
       ? `<div class="tickets-title">🧾 Bestellungen (${tickets.length})</div>` + tickets.slice(0, 7).map((t) => {
         const wait = Math.floor(g.time - t.t);
         const frac = t.customer.patience / t.customer.patienceMax;
-        return `<div class="ticket ${frac < 0.3 ? 'urgent' : ''}"><b>${esc(t.customer.name)}</b>${t.assignee ? ' <span class="tag">👩‍🍳</span>' : ''}<br>${esc(describeOrder(t.order))}<span class="small"> · ${wait}s</span></div>`;
+        const what = describeOrder(t.order);
+        return `<div class="ticket ${frac < 0.3 ? 'urgent' : ''}" title="${esc(what)}">${productImg(t.order, 'px-m', what)}<div class="ticket-txt"><b>${esc(t.customer.name)}</b>${t.assignee ? ' <span class="tag">👩‍🍳</span>' : ''}<br><span class="small">${esc(what)} · ${wait}s</span></div></div>`;
       }).join('') + (tickets.length > 7 ? `<div class="small">+${tickets.length - 7} weitere</div>` : '')
       : '';
-    if (this.refs.tickets.innerHTML !== th) this.refs.tickets.innerHTML = th;
+    if (this.lastTickets !== th) { this.lastTickets = th; this.refs.tickets.innerHTML = th; }
     this.refs.tickets.style.display = th ? '' : 'none';
     // Hand
     const held = g.player.held;
-    const hh = held ? `✋ ${esc(describeOrder(held))}${held.burnt ? ' <span class="tag bad">verbrannt</span>' : ''}` : '';
-    if (this.refs.held.innerHTML !== hh) this.refs.held.innerHTML = hh;
+    const hh = held ? `${productImg(held, 'px-m', describeOrder(held))}<span>${esc(describeOrder(held))}</span>${held.burnt ? ' <span class="tag bad">verbrannt</span>' : ''}` : '';
+    if (this.lastHeld !== hh) { this.lastHeld = hh; this.refs.held.innerHTML = hh; }
     this.refs.held.style.display = hh ? '' : 'none';
     // Prompt
     let prompt = '';

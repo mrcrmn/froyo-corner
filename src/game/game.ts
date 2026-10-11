@@ -112,6 +112,15 @@ export class Game implements Ctx {
     this.touch = new TouchControls(this, container);
     this.bindInput();
     window.addEventListener('resize', () => this.resize());
+    // Beim Drehen des Handys meldet der Browser die neue Größe oft zu früh (altes Seitenverhältnis →
+    // verzerrte Szene). Darum zusätzlich auf die tatsächliche Größe des Containers hören und nach dem
+    // Drehen noch ein paar Mal nachmessen, bis das Layout sich gesetzt hat.
+    new ResizeObserver(() => this.resize()).observe(container);
+    const settle = () => { for (const ms of [0, 120, 350, 800]) setTimeout(() => this.resize(), ms); };
+    window.addEventListener('orientationchange', settle);
+    screen.orientation?.addEventListener('change', settle);
+    window.visualViewport?.addEventListener('resize', settle);
+    document.addEventListener('fullscreenchange', settle);
     this.resize();
     const L = this.shop.layout;
     this.camTarget.set(this.player.pos.x, 0, clamp(this.player.pos.z, -L.D + 2, 0));
@@ -119,8 +128,8 @@ export class Game implements Ctx {
 
   // ------------------------------------------------------------ Ctx
 
-  say(ch: Character, text: string, kind: 'normal' | 'order' | 'angry' | 'happy' | 'thief' = 'normal'): void {
-    this.bubbles.say(ch.bubbleAnchor, text, kind);
+  say(ch: Character, text: string, kind: 'normal' | 'order' | 'angry' | 'happy' | 'thief' = 'normal', html?: string): void {
+    this.bubbles.say(ch.bubbleAnchor, text, kind, html);
   }
 
   floatText(pos: THREE.Vector3, text: string, color?: string): void {
@@ -316,7 +325,11 @@ export class Game implements Ctx {
     // Touch im Baumodus: Möbel antippen = auswählen, ziehen & loslassen = platzieren
     let drag: { x: number; y: number; picked: boolean; moved: boolean } | null = null;
     cv.addEventListener('pointermove', (e) => {
-      if (!this.build.active) return;
+      if (!this.build.active) {
+        // Maus über einem Möbelstück: zeigen, dass man es anfassen kann
+        if (e.pointerType === 'mouse' && !this.ui.panel) cv.style.cursor = this.build.furnitureAt(e.clientX, e.clientY) !== null ? 'grab' : '';
+        return;
+      }
       if (e.pointerType !== 'touch') { this.build.pointerMove(e.clientX, e.clientY); return; }
       if (!drag || !e.isPrimary) return;
       if (this.touch.pinching) { drag = null; return; }
@@ -324,7 +337,16 @@ export class Game implements Ctx {
       this.build.pointerMove(e.clientX, e.clientY);
     });
     cv.addEventListener('pointerdown', (e) => {
-      if (!this.build.active) return;
+      if (!this.build.active) {
+        // Möbelstück antippen/anklicken: direkt in den Baumodus und anheben
+        if (!e.isPrimary || e.button !== 0 || this.ui.panel || this.ui.choice || !this.canBuild()) return;
+        const uid = this.build.furnitureAt(e.clientX, e.clientY);
+        if (uid === null) return;
+        cv.style.cursor = '';
+        this.build.grab(uid, e.clientX, e.clientY);
+        if (e.pointerType === 'touch' && this.build.sel) drag = { x: e.clientX, y: e.clientY, picked: true, moved: false };
+        return;
+      }
       if (e.pointerType === 'touch') {
         if (!e.isPrimary) return;
         this.build.pointerMove(e.clientX, e.clientY);
@@ -445,6 +467,7 @@ export class Game implements Ctx {
     this.lighting.update(this.hour, this.shop.lights, this.city.streetLights);
     this.build.update();
     this.renderer.render(this.scene, this.camera);
+    this.bubbles.setMarkers(this.build.active && !this.build.sel ? this.shop.furnitureMeshes.values() : []);
     this.bubbles.update(real, this.camera, this.width, this.height);
     this.updateBars();
     this.ui.update(real);

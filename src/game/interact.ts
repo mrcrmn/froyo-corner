@@ -5,17 +5,26 @@ import { availableToppings, describeOrder } from './orders';
 import { PLAYER_LINES } from '../data/dialogue';
 import { pick } from '../core/util';
 import { isTouch } from '../ui/touch';
+import { productUrl, toppingUrl } from '../ui/pixelart';
 
 export interface ChoiceOption {
   label: string;
   sub?: string;
   color?: number;
+  /** Pixel-Art (URL) – dann als Kachel statt als Textknopf */
+  icon?: string;
+  /** Zahl auf der Kachel (z.B. Vorrat) */
+  badge?: string;
+  /** schon gewählt (z.B. Topping liegt drauf) */
+  picked?: boolean;
   disabled?: boolean;
   action: () => void;
 }
 export interface ChoicePanel {
   title: string;
   hint?: string;
+  /** Bild in der Titelzeile, z.B. das Produkt in der Hand */
+  icon?: string;
   options: ChoiceOption[];
   keepOpen?: boolean;
   station: string;
@@ -227,7 +236,8 @@ export class Interactions {
         return {
           label: v.name,
           sub: base === 'coffee' ? `Vorrat: ${n}` : `${n} Portionen`,
-          color: v.color,
+          icon: productUrl({ base, variant: v.id, toppings: [] }),
+          badge: String(n),
           disabled: n <= 0,
           action: () => {
             if ((g.state.stock[key] ?? 0) <= 0) { g.say(g.player.ch, pick(PLAYER_LINES.noStock)); return; }
@@ -257,14 +267,20 @@ export class Interactions {
       title: 'Topping-Bar',
       station: 'toppings',
       keepOpen: true,
-      hint: held.toppings.length ? 'Drauf: ' + held.toppings.map((t) => TOPPING_BY_ID.get(t)?.name).join(', ') : (isTouch() ? 'Wähle Toppings (mehrere möglich), dann „Fertig ✓“.' : 'Wähle Toppings (mehrere möglich). Esc/E zum Schließen.'),
+      // was schon drauf ist, zeigt das Bild in der Titelzeile
+      icon: productUrl(held),
+      hint: held.toppings.length >= 6 ? 'Mehr passt nicht drauf!'
+        : held.toppings.length ? undefined
+          : isTouch() ? 'Mehrere möglich – dann „Fertig ✓“.' : 'Mehrere möglich. Esc/E zum Schließen.',
       options: avail.map((t) => {
         const n = g.state.stock['top_' + t.id] ?? 0;
         const has = held.toppings.includes(t.id);
         return {
-          label: (has ? '✓ ' : '') + t.name,
+          label: t.name,
           sub: `${n} übrig`,
-          color: t.color,
+          icon: toppingUrl(t.id),
+          badge: String(n),
+          picked: has,
           disabled: n <= 0 || has || held.toppings.length >= 6,
           action: () => {
             const h = g.player.held;
