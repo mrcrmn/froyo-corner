@@ -4,6 +4,7 @@ import { Shop } from '../world/shop';
 import { Character } from '../entities/character';
 import { OrderItem } from './orders';
 import type { Sfx } from '../audio/sfx';
+import type { Persona } from '../data/dialogue';
 
 export interface Ticket {
   id: number;
@@ -39,4 +40,6 @@ export interface Ctx {
   earn(amount: number, pos?: THREE.Vector3, label?: string): void;
   spend(amount: number): boolean;
   isOpen(): boolean;
+  /** zufriedene Gäste äußern ab und zu einen Wunsch */
+  wish(ch: Character, persona: Persona): void;
 }

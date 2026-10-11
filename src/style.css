@@ -170,6 +170,18 @@ code { background: var(--card2); padding: 0 4px; border-radius: 4px; }
 .toast-good { background: #e3f8ef; }
 .toast-bad { background: #ffe6e9; }
 .toast.out { opacity: 0; transform: translateY(-10px); }
+/* Hinweis-Karte (Tipps & Gäste-Wünsche) */
+.toast.hint {
+  pointer-events: auto; display: flex; gap: 10px; align-items: flex-start; text-align: left;
+  max-width: min(400px, 94vw); padding: 8px 12px; border-color: #f2a03c; background: #fff7e3;
+}
+.hint img.px { flex: none; margin-top: 2px; }
+.hint-bulb { font-size: 30px; line-height: 1; }
+.hint-title { display: block; color: #c36a12; margin-bottom: 1px; }
+.hint-btns { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.hint-btns button { padding: 4px 10px; font-size: 0.9em; }
+.bubble-wish { display: flex; align-items: center; gap: 6px; max-width: 210px; white-space: normal; text-align: left; }
+.bubble-wish img { flex: none; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(-12px); } }
 
 /* ---------------- Auswahl an Stationen */

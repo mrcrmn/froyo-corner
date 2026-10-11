@@ -374,6 +374,7 @@ export class CustomerManager {
       const speed = clamp(c.patience / c.patienceMax, 0, 1);
       const tip = Math.round(c.paid * (0.04 + 0.22 * speed) * TIP[c.persona] * (1 + Math.min(this.shop.cozy, 100) / 150) * 10) / 10;
       this.ctx.say(c.ch, pick(LINES[c.persona].happy), 'happy');
+      setTimeout(() => this.ctx.wish(c.ch, c.persona), 3200);
       if (tip > 0) {
         this.ctx.earn(tip, pos, 'Trinkgeld');
         this.tipsToday += tip;

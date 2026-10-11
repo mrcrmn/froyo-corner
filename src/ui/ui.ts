@@ -1,5 +1,6 @@
 import type { Game } from '../game/game';
 import type { ChoicePanel } from '../game/interact';
+import type { Hint } from '../game/hints';
 import {
   EQUIPMENT, EQUIPMENT_BY_ID, FLAVORS, WAFFLES, COFFEES, MATCHAS, TOPPINGS, DRINKS, PLACEABLES, PLACEABLE_BY_ID,
   THEMES, THEME_BY_ID, LICHTERKETTE, LEVELS, stockDefs, PRICE_LABEL, FAIR_PRICE, LOAN_OFFERS, PriceCat, Variant, StockDef,
@@ -144,7 +145,8 @@ export class UI {
     el.className = `toast toast-${kind}`;
     el.textContent = text;
     this.toastsEl.appendChild(el);
-    while (this.toastsEl.children.length > 4) this.toastsEl.firstElementChild!.remove();
+    const plain = this.toastsEl.querySelectorAll('.toast:not(.hint)');
+    if (plain.length > 4) plain[0].remove();
     setTimeout(() => el.classList.add('out'), 3600);
     setTimeout(() => el.remove(), 4200);
   }
@@ -313,6 +315,26 @@ export class UI {
     this.buildEl.querySelectorAll<HTMLButtonElement>('.build-tools button').forEach((btn, i) => {
       btn.disabled = !sel || ((i === 1 || i === 2) && sel.mode !== 'move');
     });
+  }
+
+  /** Hinweis-Karte oben: bleibt länger stehen und hat einen Knopf zum passenden Fenster */
+  showHint(h: Hint): void {
+    this.toastsEl.querySelector('.hint')?.remove();
+    const el = document.createElement('div');
+    el.className = 'toast hint';
+    el.innerHTML = `${h.icon ? `<img class="px px-m" src="${h.icon}" alt="">` : '<span class="hint-bulb">💡</span>'}
+      <div class="hint-body"><b class="hint-title">${esc(h.title)}</b><div>${h.text}</div>
+      <div class="hint-btns">${h.action ? `<button class="primary hint-go">${esc(h.action.label)}</button>` : ''}<button class="hint-x">Später</button></div></div>`;
+    const close = () => { el.classList.add('out'); setTimeout(() => el.remove(), 500); };
+    el.querySelector('.hint-go')?.addEventListener('click', () => { this.g.sfx.play('click'); close(); h.action!.run(); });
+    el.querySelector('.hint-x')!.addEventListener('click', () => { this.g.sfx.play('click'); close(); });
+    this.toastsEl.prepend(el);
+    setTimeout(close, 16000);
+  }
+
+  openShop(tab: string): void {
+    this.shopTab = tab;
+    this.openPanel('shop');
   }
 
   // ------------------------------------------------------------ Panels

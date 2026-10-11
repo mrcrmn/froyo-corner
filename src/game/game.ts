@@ -14,6 +14,8 @@ import { CustomerManager } from './customers';
 import { Interactions } from './interact';
 import { BuildMode } from './build';
 import { StockAlerts } from './alerts';
+import { Hints } from './hints';
+import type { Persona } from '../data/dialogue';
 import { StaffWorker } from '../entities/staff';
 import { Thief } from '../entities/thief';
 import { Character } from '../entities/character';
@@ -57,6 +59,7 @@ export class Game implements Ctx {
   readonly interact: Interactions;
   readonly build: BuildMode;
   readonly alerts: StockAlerts;
+  readonly hints: Hints;
   staff: StaffWorker[] = [];
   thief: Thief | null = null;
 
@@ -101,6 +104,7 @@ export class Game implements Ctx {
     this.interact = new Interactions(this);
     this.build = new BuildMode(this);
     this.alerts = new StockAlerts(this);
+    this.hints = new Hints(this);
     this.bubbles.onAlertClick = () => { if (!this.build.active) this.ui.openPanel('lager'); };
     this.syncStaff();
 
@@ -138,6 +142,10 @@ export class Game implements Ctx {
 
   floatText(pos: THREE.Vector3, text: string, color?: string): void {
     this.bubbles.floatText(pos, text, color);
+  }
+
+  wish(ch: Character, persona: Persona): void {
+    this.hints.maybeWish(ch, persona);
   }
 
   toast(text: string, kind: 'info' | 'good' | 'bad' = 'info'): void {
@@ -473,6 +481,7 @@ export class Game implements Ctx {
     this.renderer.render(this.scene, this.camera);
     this.bubbles.setMarkers(this.build.active && !this.build.sel ? this.shop.furnitureMeshes.values() : []);
     this.alerts.update(real);
+    this.hints.update(real);
     this.bubbles.setAlerts(this.build.active ? [] : this.alerts.alerts);
     this.bubbles.update(real, this.camera, this.width, this.height);
     this.updateBars();

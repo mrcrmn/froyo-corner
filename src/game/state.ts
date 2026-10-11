@@ -45,6 +45,10 @@ export interface GameState {
   nextUid: number;
   settings: Settings;
   tutorialDone: boolean;
+  /** wie oft Gäste nach etwas gefragt haben, das es noch nicht gibt */
+  wishes: Record<string, number>;
+  /** bereits gezeigte Hinweise */
+  hintsSeen: string[];
 }
 
 const SAVE_KEY = 'froyo-corner-save-v1';
@@ -87,6 +91,8 @@ export function newState(): GameState {
     nextUid: 10,
     settings: { pixel: 2, music: 0.5, sfx: 0.7, musicSource: 'generativ', shadows: true },
     tutorialDone: false,
+    wishes: {},
+    hintsSeen: [],
   };
 }
 
