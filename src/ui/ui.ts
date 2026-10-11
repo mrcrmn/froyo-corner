@@ -202,11 +202,17 @@ export class UI {
         <span class="opt-label">${esc(o.label)}</span>
         ${o.sub ? `<span class="opt-sub">${esc(o.sub)}</span>` : ''}
       </button>`).join('');
+    // Schließen/Fertig oben in der Titelzeile: bleibt sichtbar, auch wenn die Optionen scrollen
+    const close = p.keepOpen
+      ? this.btn('Fertig ✓', () => this.closeChoice(), { cls: 'primary choice-close' })
+      : this.btn('✕', () => this.closeChoice(), { cls: 'choice-close', title: 'Schließen' });
     this.choiceEl.innerHTML = `
-      <div class="choice-title">${esc(p.title)} <span class="small kh">· Zahl drücken oder klicken · Esc schließt</span></div>
+      <div class="choice-head">
+        <div class="choice-title">${esc(p.title)} <span class="small kh">· Zahl drücken oder klicken · Esc schließt</span></div>
+        ${close}
+      </div>
       ${p.hint ? `<div class="choice-hint">${esc(p.hint)}</div>` : ''}
-      <div class="opts">${opts}</div>
-      ${p.keepOpen ? `<div class="choice-foot">${this.btn('Fertig ✓', () => this.closeChoice(), { cls: 'primary' })}</div>` : ''}`;
+      <div class="opts">${opts}</div>`;
     this.choiceEl.classList.add('show');
   }
 

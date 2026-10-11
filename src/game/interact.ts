@@ -4,6 +4,7 @@ import { FLAVORS, WAFFLES, COFFEES, MATCHAS, Variant, stockIdFor, BaseKind, TOPP
 import { availableToppings, describeOrder } from './orders';
 import { PLAYER_LINES } from '../data/dialogue';
 import { pick } from '../core/util';
+import { isTouch } from '../ui/touch';
 
 export interface ChoiceOption {
   label: string;
@@ -256,7 +257,7 @@ export class Interactions {
       title: 'Topping-Bar',
       station: 'toppings',
       keepOpen: true,
-      hint: held.toppings.length ? 'Drauf: ' + held.toppings.map((t) => TOPPING_BY_ID.get(t)?.name).join(', ') : 'Wähle Toppings (mehrere möglich). Esc/E zum Schließen.',
+      hint: held.toppings.length ? 'Drauf: ' + held.toppings.map((t) => TOPPING_BY_ID.get(t)?.name).join(', ') : (isTouch() ? 'Wähle Toppings (mehrere möglich), dann „Fertig ✓“.' : 'Wähle Toppings (mehrere möglich). Esc/E zum Schließen.'),
       options: avail.map((t) => {
         const n = g.state.stock['top_' + t.id] ?? 0;
         const has = held.toppings.includes(t.id);

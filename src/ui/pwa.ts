@@ -10,9 +10,10 @@ export function initPwa(): void {
     deferred = e as InstallPrompt;
   });
   window.addEventListener('appinstalled', () => { deferred = null; });
-  if (import.meta.env.PROD && 'serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
-  }
+  if (!('serviceWorker' in navigator)) return;
+  if (import.meta.env.PROD) navigator.serviceWorker.register('./sw.js').catch(() => {});
+  // im Dev-Server keinen Cache: alten Worker (z.B. von `vite preview`) abmelden
+  else navigator.serviceWorker.getRegistrations().then((rs) => rs.forEach((r) => r.unregister()));
 }
 
 /** läuft als installierte App (ohne Browserleiste) */

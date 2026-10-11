@@ -174,16 +174,17 @@ code { background: var(--card2); padding: 0 4px; border-radius: 4px; }
 
 .choice {
   position: absolute; left: 50%; bottom: 110px; transform: translateX(-50%);
-  display: none; padding: 10px 12px; max-width: min(760px, 94vw);
+  display: none; flex-direction: column; padding: 10px 12px; max-width: min(760px, 94vw);
 }
-.choice.show { display: block; animation: toast-in 0.15s ease-out; }
-.choice-title { font-weight: 700; margin-bottom: 6px; }
+.choice.show { display: flex; animation: toast-in 0.15s ease-out; }
+.choice-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 6px; flex: none; }
+.choice-title { font-weight: 700; flex: 1; align-self: center; }
+.choice-close { flex: none; }
 .choice-hint { font-size: 0.9em; margin-bottom: 6px; color: var(--pink-d); }
-.opts { display: flex; flex-wrap: wrap; gap: 6px; }
+.opts { display: flex; flex-wrap: wrap; gap: 6px; min-height: 0; overflow-y: auto; touch-action: pan-y; }
 .opt { display: flex; align-items: center; gap: 6px; text-align: left; }
 .opt .key { font-size: 0.75em; background: var(--border); color: #fff; border-radius: 4px; padding: 0 5px; }
 .opt-sub { font-size: 0.78em; color: var(--muted); }
-.choice-foot { margin-top: 8px; text-align: right; }
 
 .swatch { display: inline-block; width: 14px; height: 14px; border-radius: 4px; border: 2px solid var(--border); flex: none; }
 .swatch.big { width: 18px; height: 18px; }
@@ -345,7 +346,8 @@ code { background: var(--card2); padding: 0 4px; border-radius: 4px; }
 .touch .opt { padding: 8px 12px; }
 .touch .hud-bottom { bottom: 14px; max-width: calc(100% - 380px); }
 .touch .hud-bottom .prompt { text-align: center; }
-.touch .choice { width: max-content; bottom: 74px; max-width: calc(100% - 360px); max-height: calc(100% - 200px); overflow-y: auto; }
+.touch .choice { width: max-content; bottom: 74px; max-width: calc(100% - 360px); max-height: calc(100% - 200px); }
+.touch .choice-close { padding: 8px 14px; }
 .touch .tickets { max-height: calc(100% - 270px); }
 .touch .panel { max-height: calc(100% - 16px); }
 .touch .panel-wrap { padding: 8px; }

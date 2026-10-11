@@ -179,6 +179,9 @@ export class TouchControls {
     this.t = 0.15;
     const choice = !!g.ui.choice;
     this.btnA.classList.toggle('ready', choice || !!g.interact.nearest());
+    // bei offener Auswahl schließt ✋ sie – dann auch so beschriften
+    const a = choice ? '✓' : '✋';
+    if (this.btnA.textContent !== a) this.btnA.textContent = a;
     const b = choice ? '✕' : '🔨';
     if (this.btnB.textContent !== b) this.btnB.textContent = b;
     this.btnB.title = choice ? 'Schließen' : 'Bauen';
