@@ -579,3 +579,63 @@ export function sinkModel(): THREE.Group {
   vb.box(0.38, 1.0, 0.1, 0.18, 0.08, 0.14, 0x7fd6b4);
   return vb.build();
 }
+
+/** Was Gäste auf dem Tisch zurücklassen: leerer Becher, Löffel, Serviette */
+export function leftoverModel(color: number): THREE.Group {
+  const vb = new VB();
+  vb.box(0, 0.09, 0, 0.17, 0.18, 0.17, 0xfdfbf7);
+  vb.box(0, 0.08, 0, 0.18, 0.06, 0.18, 0xf27fa6, 'solid', 0);
+  vb.box(0, 0.185, 0, 0.13, 0.02, 0.13, color, 'solid', 0);
+  vb.box(0.03, 0.24, 0.02, 0.025, 0.12, 0.025, 0x9aa3ad, 'solid', 0);
+  vb.box(0.17, 0.012, 0.08, 0.15, 0.024, 0.13, 0xdcd2c4, 'solid', 0.04);
+  return vb.build({ shadow: false });
+}
+
+/** Tablett mit abgeräumtem Geschirr – in der Hand */
+export function trayModel(): THREE.Group {
+  const vb = new VB();
+  vb.box(0, 0.02, 0, 0.42, 0.04, 0.3, 0x8c6239);
+  vb.box(-0.1, 0.11, 0, 0.12, 0.14, 0.12, 0xfdfbf7);
+  vb.box(0.09, 0.1, 0.04, 0.12, 0.12, 0.12, 0xfdfbf7);
+  vb.box(0.08, 0.06, -0.09, 0.14, 0.03, 0.08, 0xffffff, 'solid', 0);
+  return vb.build({ shadow: false });
+}
+
+/** Zugebundener Müllsack – in der Hand */
+export function trashBagModel(): THREE.Group {
+  const vb = new VB();
+  vb.box(0, 0.16, 0, 0.32, 0.3, 0.28, 0x2b2d33, 'solid', 0.06);
+  vb.box(0, 0.33, 0, 0.12, 0.08, 0.1, 0x2b2d33);
+  vb.box(0, 0.38, 0, 0.16, 0.03, 0.04, 0xf2c94c);
+  return vb.build({ shadow: false });
+}
+
+/** Volle Säcke, die oben aus dem Mülleimer quellen */
+export function binHeapModel(): THREE.Group {
+  const vb = new VB();
+  vb.box(0, 0.95, 0, 0.46, 0.22, 0.42, 0x2b2d33, 'solid', 0.08);
+  vb.box(0.12, 1.1, 0.05, 0.14, 0.14, 0.12, 0xfdfbf7, 'solid', 0.1);
+  vb.box(-0.1, 1.08, -0.06, 0.16, 0.1, 0.14, 0xe9d8b4, 'solid', 0.1);
+  return vb.build();
+}
+
+/** Große Mülltonne am Straßenrand */
+export function tonneModel(): THREE.Group {
+  const vb = new VB();
+  vb.box(0, 0.5, 0, 1.0, 0.9, 0.62, 0x3f6e4a);
+  vb.box(0, 0.98, -0.02, 1.04, 0.08, 0.66, 0x355e3f);
+  vb.box(0, 0.5, 0.315, 0.5, 0.3, 0.01, 0x56915f, 'solid', 0);
+  for (const x of [-0.38, 0.38]) vb.box(x, 0.06, 0.2, 0.12, 0.12, 0.12, 0x222222);
+  vb.box(0, 0.85, -0.33, 0.7, 0.05, 0.05, 0x2a3a30);
+  return vb.build();
+}
+
+/** Pfütze / Klecks auf dem Boden */
+export function spillModel(color: number): THREE.Group {
+  const vb = new VB();
+  vb.jitter = 0;
+  const parts: [number, number, number, number][] = [[0, 0, 0.42, 0.34], [0.16, 0.12, 0.2, 0.2], [-0.18, -0.08, 0.18, 0.16], [0.05, -0.2, 0.16, 0.12], [0.28, -0.12, 0.08, 0.08], [-0.26, 0.18, 0.07, 0.07]];
+  for (const [x, z, w, d] of parts) vb.box(x, 0.062, z, w, 0.012, d, color, 'solid', 0);
+  vb.box(0.02, 0.073, 0.02, 0.06, 0.006, 0.05, 0xffffff, 'solid', 0);
+  return vb.build({ shadow: false });
+}

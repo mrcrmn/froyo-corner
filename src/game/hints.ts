@@ -5,6 +5,7 @@ import {
   BaseKind, DRINKS, EQUIPMENT_BY_ID, FLAVORS, LEVELS, TOPPINGS, VARIANTS, Variant,
 } from '../data/catalog';
 import { itemName } from './orders';
+import { TRASH_CAP } from './mess';
 import { productImg, productUrl, toppingImg, toppingUrl } from '../ui/pixelart';
 import { chance, escapeHtml, money, pick, pickWeighted } from '../core/util';
 
@@ -154,6 +155,34 @@ export class Hints {
         hint: {
           id: '', icon: productUrl({ base: 'froyo', variant: lowFlavor.id, toppings: [] }), title: 'Joghurt selbst anrühren',
           text: `<b>${escapeHtml(lowFlavor.name)}</b> geht bald aus. Geh durch die Tür in der Rückwand in den <b>Nebenraum</b>: Am <b>Rührwerk</b> wird aus Joghurt-Basis ein Kanister – den trägst du zur Maschine.`,
+        },
+      };
+    }
+    // Sauberkeit
+    if (g.mess.dirtyTables().length && !seen('tables')) {
+      return {
+        key: 'tables',
+        hint: {
+          id: '', icon: '', title: 'Tische abräumen',
+          text: 'Gäste lassen ihre Becher stehen. Auf einen <b>schmutzigen Tisch</b> setzt sich niemand – also abräumen und das Tablett in den <b>Mülleimer</b> hinter der Theke leeren.',
+        },
+      };
+    }
+    if (g.mess.spills.length && !seen('spill')) {
+      return {
+        key: 'spill',
+        hint: {
+          id: '', icon: '', title: 'Gekleckert!',
+          text: 'Da ist etwas auf den Boden getropft. <b>Aufwischen</b>, bevor jemand reintritt – Kleckse gibt’s sonst in den Bewertungen zurück.',
+        },
+      };
+    }
+    if (s.trash >= TRASH_CAP - 2 && !seen('trash')) {
+      return {
+        key: 'trash',
+        hint: {
+          id: '', icon: '', title: 'Müll rausbringen',
+          text: 'Der Mülleimer ist bald voll. Nimm den <b>Müllsack</b> heraus und bring ihn durch die Eingangstür zur <b>Tonne an der Straße</b>. Läuft er über, landet alles auf dem Boden.',
         },
       };
     }

@@ -150,6 +150,7 @@ code { background: var(--card2); padding: 0 4px; border-radius: 4px; }
 .prompt { background: rgba(59, 42, 53, 0.85); color: #fff; padding: 6px 14px; border-radius: 10px; font-size: 1.05em; }
 .prompt kbd { color: var(--ink); }
 .held { padding: 3px 12px 3px 6px; display: flex; align-items: center; gap: 6px; }
+.held-emoji { font-size: 24px; line-height: 1; padding: 2px; }
 .work { display: none; width: 220px; background: rgba(59, 42, 53, 0.85); color: #fff; padding: 6px 10px; border-radius: 10px; }
 .work.show { display: block; }
 .work-track { height: 8px; background: #574552; border-radius: 4px; margin-top: 4px; overflow: hidden; }

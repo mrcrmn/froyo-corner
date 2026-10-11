@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { Game } from './game';
 import { FLAVORS, WAFFLES, MATCHAS, DRINKS, stockDefs, BATCH } from '../data/catalog';
 import { availableToppings } from './orders';
+import { TRASH_CAP } from './mess';
 
 export type AlertLevel = 'low' | 'out';
 export interface StationAlert { id: string; pos: THREE.Vector3; level: AlertLevel; text: string }
@@ -80,6 +81,21 @@ export class StockAlerts {
         text: (empty.length ? `Leer: ${names(empty)}` : '') + (empty.length && low.length ? ' · ' : '') + (low.length ? `Knapp: ${names(low)}` : ''),
       });
     }
+    // Mülleimer
+    const bin = g.shop.stations.get('trash');
+    const fill = g.state.trash;
+    const binLv: AlertLevel | null = fill >= TRASH_CAP ? 'out' : fill >= TRASH_CAP - 2 ? 'low' : null;
+    if (bin && binLv) {
+      const pos = new THREE.Vector3();
+      bin.group.getWorldPosition(pos);
+      pos.y += 1.7;
+      out.push({ id: 'trash', pos, level: binLv, text: binLv === 'out' ? 'Mülleimer voll – Müllsack raus an die Straße' : `Mülleimer fast voll (${fill}/${TRASH_CAP})` });
+    }
+    const binBefore = this.told.get('#trash');
+    if (binLv === 'out' && binBefore !== 'out' && !this.first) {
+      g.toast('🗑️ Der Mülleimer ist voll! Nimm den Müllsack raus und bring ihn zur Tonne an der Straße.', 'bad');
+    }
+    if (binLv) this.told.set('#trash', binLv); else this.told.delete('#trash');
     this.alerts = out;
     // beim Laden nicht gleich alles aufzählen – die „!“ zeigen es ja
     if (this.first) { this.first = false; return; }

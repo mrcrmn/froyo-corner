@@ -27,11 +27,21 @@ export interface CustomerRef {
   patienceMax: number;
 }
 
+/** Dreck im Laden – Gäste kleckern und lassen Geschirr stehen */
+export interface MessApi {
+  leftover(tableUid: number, seat: { x: number; z: number }, color: number): void;
+  spill(x: number, z: number, color: number): void;
+  spillAt(x: number, z: number, r?: number): boolean;
+  /** 0 = blitzblank */
+  level(): number;
+}
+
 export interface Ctx {
   state: GameState;
   scene: THREE.Scene;
   shop: Shop;
   sfx: Sfx;
+  mess: MessApi;
   /** echte Sekunden seit Spielstart (skaliert mit Spieltempo) */
   time: number;
   say(ch: Character, text: string, kind?: 'normal' | 'order' | 'angry' | 'happy' | 'thief', html?: string): void;

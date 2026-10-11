@@ -8,6 +8,7 @@ import { PLAYER_LINES } from '../data/dialogue';
 import { pick } from '../core/util';
 import { isTouch } from '../ui/touch';
 import { productUrl, toppingUrl } from '../ui/pixelart';
+import { TRASH_CAP, TRASH_TAKE } from './mess';
 
 export interface ChoiceOption {
   label: string;
@@ -54,10 +55,13 @@ const STATION_LABEL: Record<string, string> = {
   toppings: 'Topping-Bar',
   ruehrwerk: 'Rührwerk',
   basisregal: 'Basis-Kühlregal',
+  tonne: 'Mülltonne',
 };
 
 /** Sekunden fürs Anrühren eines Kanisters */
 const MIX_TIME = 4;
+const WIPE_TIME = 1.6;
+const CLEAR_TIME = 1.0;
 
 const WAFFLE_DONE = 6.5;
 const WAFFLE_BURN = 14;
@@ -131,11 +135,21 @@ export class Interactions {
     let best: Target | null = null;
     let bd = 0.95;
     for (const st of this.g.shop.stations.values()) {
-      const d = Math.hypot(p.x - st.ix, p.z - st.iz);
+      const d = Math.hypot(p.x - st.ix, p.z - st.iz) - (st.reach ?? 0);
       if (d < bd) {
         bd = d;
         best = { id: st.id, label: this.labelFor(st.id), x: st.face?.x ?? st.x, z: st.face?.z ?? st.iz - 1 };
       }
+    }
+    // Kleckse und schmutzige Tische
+    const mess = this.g.mess;
+    for (const s of mess.spills) {
+      const d = Math.hypot(p.x - s.x, p.z - s.z) + 0.1;
+      if (d < bd) { bd = d; best = { id: 'spill:' + s.id, label: this.labelFor('spill'), x: s.x, z: s.z }; }
+    }
+    for (const t of mess.dirtyTables()) {
+      const d = mess.tableDist(t, p.x, p.z) + 0.2;
+      if (d < bd) { bd = d; best = { id: 'table:' + t.uid, label: this.labelFor('table'), x: t.x, z: t.z }; }
     }
     return best;
   }
@@ -143,13 +157,28 @@ export class Interactions {
   private labelFor(id: string): string {
     const held = this.g.player.held;
     const carry = this.g.player.carry;
+    if (carry === 'tablett') {
+      if (id === 'trash') return 'Tablett in den Mülleimer leeren';
+      return 'Tablett zum Mülleimer bringen';
+    }
+    if (carry === 'muell') {
+      if (id === 'tonne') return 'Müllsack in die Tonne werfen';
+      return 'Müllsack raus zur Tonne an der Straße';
+    }
     if (carry) {
       const f = VARIANT_BY_ID.get(carry);
       if (f && id === f.machine) return `Kanister ${f.name} einfüllen`;
       if (id === 'trash') return 'Kanister auskippen';
       if (id === 'ruehrwerk') return 'Kanister zur Maschine bringen';
     }
+    const fill = this.g.state.trash;
     switch (id) {
+      case 'spill':
+        return 'Aufwischen';
+      case 'table':
+        return 'Tisch abräumen';
+      case 'tonne':
+        return 'Mülltonne';
       case 'kasse': {
         const f = this.g.cm.frontCustomer();
         return f ? `Bestellung von ${f.name} aufnehmen` : 'Kasse (niemand wartet)';
@@ -159,7 +188,8 @@ export class Interactions {
       case 'toppings':
         return held && (held.base === 'froyo' || held.base === 'waffle') ? 'Toppings hinzufügen' : 'Topping-Bar (erst Joghurt oder Waffel holen)';
       case 'trash':
-        return held ? 'Wegwerfen' : 'Mülleimer';
+        if (held) return 'Wegwerfen';
+        return fill >= TRASH_TAKE ? `Müllsack rausnehmen (${fill}/${TRASH_CAP})` : `Mülleimer (${fill}/${TRASH_CAP})`;
       case 'waffeleisen':
         if (this.waffle) return this.waffle.t >= WAFFLE_DONE ? 'Waffel herausnehmen' : 'Waffel backt…';
         return 'Waffel backen';
@@ -183,6 +213,7 @@ export class Interactions {
     const held = g.player.held;
     g.player.faceTo(t.x, t.z);
     if (g.player.carry && t.id !== 'thief' && this.useCarry(t.id)) return;
+    if (t.id.startsWith('spill:') || t.id.startsWith('table:')) { this.clean(t.id); return; }
     switch (t.id) {
       case 'thief':
         g.player.slap();
@@ -205,8 +236,22 @@ export class Interactions {
       case 'trash':
         if (held) {
           g.player.setHeld(null);
-          g.sfx.play('trash');
+          g.mess.toBin(VARIANT_BY_ID.get(held.variant)?.color);
+          return;
         }
+        if (g.state.trash < TRASH_TAKE) { g.toast('Der Mülleimer ist noch fast leer.'); return; }
+        this.work = {
+          t: 0, max: 0.8, label: 'Müllsack zubinden',
+          done: () => {
+            g.state.trash = 0;
+            g.player.setCarry('muell');
+            g.sfx.play('trash');
+            g.toast('🗑️ Ab damit nach draußen – die Tonne steht vorne an der Straße.');
+          },
+        };
+        return;
+      case 'tonne':
+        g.toast('Hier kommt der volle Müllsack aus dem Mülleimer hinter der Theke rein.');
         return;
       case 'vorratskuehlschrank':
       case 'getraenkekuehlschrank':
@@ -251,10 +296,32 @@ export class Interactions {
     }
   }
 
-  /** Mit Kanister in der Hand: einfüllen, auskippen – oder freundlich daran erinnern */
+  /** Mit Kanister, Tablett oder Müllsack in der Hand: abliefern – oder freundlich daran erinnern */
   private useCarry(id: string): boolean {
     const g = this.g;
-    const f = VARIANT_BY_ID.get(g.player.carry!)!;
+    const carry = g.player.carry!;
+    if (carry === 'tablett') {
+      if (id === 'trash') {
+        g.player.setCarry(null);
+        g.mess.toBin();
+        return true;
+      }
+      if (id === 'kasse') return false;
+      g.toast('Das Tablett kommt in den Mülleimer hinter der Theke.');
+      return true;
+    }
+    if (carry === 'muell') {
+      if (id === 'tonne') {
+        g.player.setCarry(null);
+        g.sfx.play('trash');
+        const st = g.shop.stations.get('tonne');
+        if (st) g.floatText(new THREE.Vector3(st.x, 1.6, st.iz + 0.6), 'Müll entsorgt ✨', '#7fd6b4');
+        return true;
+      }
+      g.toast('Der Müllsack gehört in die Tonne draußen an der Straße – raus durch die Eingangstür.');
+      return true;
+    }
+    const f = VARIANT_BY_ID.get(carry)!;
     if (id === f.machine) {
       const key = stockIdFor('froyo', f.id);
       g.state.stock[key] = (g.state.stock[key] ?? 0) + BATCH;
@@ -266,13 +333,42 @@ export class Interactions {
     }
     if (id === 'trash') {
       g.player.setCarry(null);
-      g.sfx.play('trash');
+      g.mess.toBin(f.color);
       g.toast(`Kanister ${f.name} ausgekippt.`);
       return true;
     }
     if (id === 'kasse' || id === 'basisregal') return false;
     g.toast(`Erst den Kanister in ${id === 'ruehrwerk' ? 'die Maschine' : 'den ' + STATION_LABEL[f.machine]} füllen.`);
     return true;
+  }
+
+  /** Klecks aufwischen oder Tisch abräumen */
+  private clean(id: string): void {
+    const g = this.g;
+    const [kind, n] = id.split(':');
+    const num = Number(n);
+    if (g.player.handsFull) { g.toast('Erst die Hände frei machen.'); return; }
+    if (kind === 'spill') {
+      const s = g.mess.spills.find((q) => q.id === num);
+      if (!s) return;
+      this.work = {
+        t: 0, max: WIPE_TIME, label: 'Aufwischen',
+        done: () => {
+          g.mess.wipe(num);
+          g.sfx.play('pop');
+          g.floatText(new THREE.Vector3(s.x, 1.0, s.z), 'Sauber! ✨', '#7fd6b4');
+        },
+      };
+      return;
+    }
+    this.work = {
+      t: 0, max: CLEAR_TIME, label: 'Abräumen',
+      done: () => {
+        g.mess.clearTable(num);
+        g.player.setCarry('tablett');
+        g.sfx.play('pop');
+      },
+    };
   }
 
   /** Rührwerk im Nebenraum: Basis + Sorte → ein Kanister für Zapfer bzw. Eismaschine */

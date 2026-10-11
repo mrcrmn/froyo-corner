@@ -8,7 +8,7 @@ import {
 import {
   COUNTER_H, zapferModel, eismaschineModel, waffleIronModel, coffeeModel, trashModel, storageFridgeModel,
   drinksFridgeModel, registerModel, toppingBarModel, placeableModel, signTexture, matchaBarModel, WaffleIronParts,
-  ruehrwerkModel, basisRegalModel, sinkModel, MixerParts,
+  ruehrwerkModel, basisRegalModel, sinkModel, MixerParts, tonneModel,
 } from './models';
 
 export const WALL_H = 3.2;
@@ -24,6 +24,8 @@ export interface Station {
   group: THREE.Group;
   /** wohin der Spieler beim Benutzen schaut (Standard: zur Rückwand) */
   face?: P2;
+  /** zusätzliche Reichweite (große Geräte, die man von mehreren Seiten benutzt) */
+  reach?: number;
 }
 
 export interface Seat {
@@ -42,6 +44,8 @@ export interface TableInfo {
   z: number;
   seats: Seat[];
   claimedBy: unknown | null;
+  /** Geschirr steht noch drauf – erst abräumen, dann setzt sich wieder jemand */
+  dirty?: boolean;
 }
 
 export interface Layout {
@@ -259,6 +263,7 @@ export class Shop {
     vb.box(dx0 + 0.05, 1.3, 0.55, 0.08, 2.5, 0.06, 0x7a5a3a);
     vb.box(dx0 + 0.05, 1.3, 1.05, 0.08, 2.5, 0.06, 0x7a5a3a);
     vb.box(L.doorX, 0.005, 0.45, L.doorW, 0.02, 0.6, 0x8a5a3a); // Fußmatte
+    this.colliders.push({ x0: dx0, z0: 0.05, x1: dx0 + 0.1, z1: 1.1 });
     // Fassade außen + Markise
     vb.box(0, 3.4, 0.05, W + 2 * T + 0.4, 0.9, T + 0.2, 0x355070);
     const aw = awning.colors;
@@ -423,8 +428,21 @@ export class Shop {
     this.lights.push(p);
   }
 
+  /** Mülltonne draußen an der Bordsteinkante – dahin kommt der volle Müllsack */
+  private buildStreetBin(): void {
+    const L = this.layout;
+    const x = L.doorX - L.doorW / 2 - 1.8, z = 3.85;
+    const m = tonneModel();
+    m.position.set(x, 0, z);
+    m.rotation.y = Math.PI;
+    this.roomGroup.add(m);
+    this.colliders.push({ x0: x - 0.55, z0: z - 0.35, x1: x + 0.55, z1: z + 0.35 });
+    this.stations.set('tonne', { id: 'tonne', x, ix: x, iz: z, group: m, face: { x, z }, reach: 0.55 });
+  }
+
   private buildStations(state: GameState): void {
     this.buildBackStations();
+    this.buildStreetBin();
     const L = this.layout;
     const D = L.D;
     const slotX = (i: number) => L.W / 2 - 0.75 - i * 1.1;

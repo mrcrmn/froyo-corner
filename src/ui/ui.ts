@@ -865,6 +865,7 @@ export class UI {
         <li>An der <b>Ausgabe</b> übergeben. Richtig = Trinkgeld, falsch = schlechte Bewertung.</li>
         <li>Ein <b>Dieb</b> an der Topping-Bar? Hin und ${useKey} – Löffel auf die Finger!</li>
         <li>Geht ein Joghurt zur Neige? Im <b>Nebenraum</b> (Tür in der Rückwand) am <b>Rührwerk</b> frisch anrühren und den Kanister zur Maschine tragen.</li>
+        <li>Sauber bleiben: <b>Kleckse aufwischen</b> und <b>Tische abräumen</b> – auf schmutzige Tische setzt sich niemand. Das Tablett kommt in den Mülleimer; ist der voll, den <b>Müllsack</b> durch die Eingangstür zur Tonne an der Straße bringen.</li>
         <li>Um 19 Uhr schließt der Laden. Abends werden Miete, Löhne und Kredite fällig.</li>
       </ol>
       <p class="small">Tipp: Tische mit Stühlen locken Gruppen zum Kaffeeklatsch an – die bestellen gern Kaffee & Matcha nach.</p>
@@ -958,6 +959,8 @@ export class UI {
     const held = g.player.held;
     const carry = g.player.carry ? VARIANT_BY_ID.get(g.player.carry) : null;
     const hh = held ? `${productImg(held, 'px-m', describeOrder(held))}<span>${esc(describeOrder(held))}</span>${held.burnt ? ' <span class="tag bad">verbrannt</span>' : ''}`
+      : g.player.carry === 'tablett' ? '<span class="held-emoji">🍽️</span><span>Tablett → Mülleimer</span>'
+      : g.player.carry === 'muell' ? '<span class="held-emoji">🗑️</span><span>Müllsack → Tonne an der Straße</span>'
       : carry ? `${productImg({ base: 'froyo', variant: carry.id, toppings: [] }, 'px-m', carry.name)}<span>Kanister ${esc(carry.name)} → ${carry.machine === 'zapfer' ? 'Zapfer' : 'Eismaschine'}</span>` : '';
     if (this.lastHeld !== hh) { this.lastHeld = hh; this.refs.held.innerHTML = hh; }
     this.refs.held.style.display = hh ? '' : 'none';

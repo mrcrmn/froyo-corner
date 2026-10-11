@@ -3,7 +3,7 @@ import { Character } from './character';
 import { Appearance } from './appearance';
 import { Rect } from '../world/shop';
 import { HeldItem } from '../game/orders';
-import { productModel, spoonModel, kanisterModel } from '../world/models';
+import { productModel, spoonModel, kanisterModel, trayModel, trashBagModel } from '../world/models';
 import { VARIANT_BY_ID } from '../data/catalog';
 
 const R = 0.26;
@@ -11,7 +11,10 @@ const R = 0.26;
 export class Player {
   ch: Character;
   held: HeldItem | null = null;
-  /** Kanister mit frisch angerührtem Joghurt (Sorte) – statt eines Produkts in der Hand */
+  /**
+   * Was der Spieler statt eines Produkts trägt: Kanister (Sorten-ID),
+   * Tablett mit Geschirr ('tablett') oder Müllsack ('muell')
+   */
   carry: string | null = null;
   /** blockiert Bewegung (z.B. während des Zapfens) */
   busy = 0;
@@ -31,12 +34,14 @@ export class Player {
     this.held = item;
     if (item) this.carry = null;
     this.ch.setHeld(item ? productModel(item.base, item.variant, item.toppings, item.burnt)
-      : this.carry ? kanisterModel(VARIANT_BY_ID.get(this.carry)?.color ?? 0xffffff) : null);
+      : this.carry === 'tablett' ? trayModel()
+        : this.carry === 'muell' ? trashBagModel()
+          : this.carry ? kanisterModel(VARIANT_BY_ID.get(this.carry)?.color ?? 0xffffff) : null);
   }
 
-  setCarry(flavor: string | null): void {
+  setCarry(what: string | null): void {
     this.held = null;
-    this.carry = flavor;
+    this.carry = what;
     this.setHeld(null);
   }
 

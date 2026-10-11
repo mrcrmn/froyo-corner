@@ -108,6 +108,10 @@ export const GENERIC = {
     'Taxi! TAXI!', 'Hast du das gesehen?', 'Nur noch ein Block…', 'Ich bin spät dran!', 'Schönes Wetter heute!',
     'Ist das ein neuer Laden?', 'Hey, Frozen Yogurt!', 'Mein Hund mag Eis.', 'Fuhgeddaboudit!', 'Ich lauf hier!',
   ],
+  spill: ['Hoppla!', 'Upsi…', 'Oh nein, gekleckert!', 'Huch, das tropft!'],
+  sticky: ['Igitt, hier klebt’s!', 'Bäh, wer hat hier gekleckert?', 'Vorsicht, rutschig!'],
+  dirty: ['Ziemlich schmuddelig hier.', 'Die Tische waren alle dreckig…', 'Lecker, aber putzt mal!', 'Überall Kleckse. Schade.'],
+  dirtyTables: ['Alles voller Geschirr – wo soll man sitzen?', 'Räumt hier keiner ab?'],
   cozyHigh: ['Wie gemütlich es hier ist!', 'So schön eingerichtet!', 'Hier fühl ich mich wohl.'],
   photo: ['*klick* Für die Story!', '*Blitz*', 'Einmal lächeln, Joghurt!'],
 };

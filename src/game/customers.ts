@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { Character } from '../entities/character';
 import { randomAppearance } from '../entities/appearance';
 import { Persona, LINES, GENERIC, FIRST_NAMES, PERSONA_LABEL } from '../data/dialogue';
-import { DRINKS, FAIR_PRICE, stockIdFor } from '../data/catalog';
+import { DRINKS, FAIR_PRICE, stockIdFor, VARIANT_BY_ID } from '../data/catalog';
 import { P2 } from '../core/path';
 import { chance, clamp, escapeHtml, pick, pickWeighted, rand, randi } from '../core/util';
 import { orderImg } from '../ui/pixelart';
@@ -57,6 +57,10 @@ export class Customer {
   pickupIdx = -1;
   angry = false;
   thoughts: string[] = [];
+  /** Farbe dessen, was sie gerade essen – für Kleckse und Becher */
+  itemColor = 0xf3e6d6;
+  /** Sekunden bis zum Kleckern (0 = kleckert nicht) */
+  spillT = 0;
 
   constructor(public persona: Persona) {
     this.name = pick(FIRST_NAMES);
@@ -153,14 +157,17 @@ export class CustomerManager {
   }
 
   private freeTable(size: number): TableInfo | null {
-    const cands = this.shop.tables.filter((t) => !t.claimedBy && t.seats.length >= size && t.seats.every((s) => !s.occupant));
+    const cands = this.shop.tables.filter((t) => !t.claimedBy && !t.dirty && t.seats.length >= size && t.seats.every((s) => !s.occupant));
     if (!cands.length) return null;
     return cands.sort((a, b) => a.seats.length - b.seats.length)[0];
   }
 
   private freeSeat(): Seat | null {
     const free = this.shop.seats.filter((s) => !s.occupant && s.tableUid !== null);
-    const unclaimed = free.filter((s) => !this.shop.tables.find((t) => t.uid === s.tableUid)?.claimedBy);
+    const unclaimed = free.filter((s) => {
+      const t = this.shop.tables.find((q) => q.uid === s.tableUid);
+      return !t?.claimedBy && !t?.dirty;
+    });
     return pick(unclaimed.length ? unclaimed : []) ?? null;
   }
 
@@ -201,6 +208,7 @@ export class CustomerManager {
         seat.occupant = c;
       } else {
         c.thoughts.push('noSeat');
+        if (this.shop.tables.some((t) => t.dirty)) c.thoughts.push('dirtyTables');
       }
     }
     this.addCustomer(c, startX, lane);
@@ -414,6 +422,9 @@ export class CustomerManager {
     c.pickupIdx = -1;
     c.waited += c.patienceMax - c.patience;
     c.ch.setHeld(productModel(held.base, held.variant, held.toppings, held.burnt));
+    c.itemColor = VARIANT_BY_ID.get(held.variant)?.color ?? c.itemColor;
+    // Kinder kleckern gern
+    if (chance(c.persona === 'kind' ? 0.16 : 0.04)) c.spillT = rand(0.5, 2.0);
     if (c.dineIn && c.seat) {
       c.state = 'toSeat';
       const seat = c.seat;
@@ -447,12 +458,15 @@ export class CustomerManager {
     if (c.dineIn && c.seat) stars += 0.2;
     if (c.thoughts.includes('noSeat')) { stars -= 0.4; reasons.push('noSeat'); }
     if (c.thoughts.includes('thief')) { stars -= 0.3; }
+    const dirt = this.ctx.mess.level() + (c.thoughts.includes('sticky') ? 1 : 0) + (c.thoughts.includes('dirtyTables') ? 1 : 0);
+    if (dirt >= 1.5) { stars -= Math.min(1.2, dirt * 0.25); reasons.push('dirty'); }
     const st = clamp(Math.round(stars), 1, 5);
     let text: string;
     if (reasons.includes('wrong')) text = pick(LINES[c.persona].wrong);
     else if (reasons.includes('wait') && st <= 3) text = pick(['Hat ewig gedauert.', 'Lange Wartezeit, aber okay.', pick(LINES[c.persona].wait)]);
     else if (reasons.includes('expensive') && st <= 3) text = pick(GENERIC.expensive);
-    else if (reasons.includes('noSeat') && st <= 3) text = pick(GENERIC.noSeat);
+    else if (reasons.includes('noSeat') && st <= 3) text = pick(c.thoughts.includes('dirtyTables') ? GENERIC.dirtyTables : GENERIC.noSeat);
+    else if (reasons.includes('dirty') && st <= 3) text = pick(GENERIC.dirty);
     else if (reasons.includes('cozy') && chance(0.4)) text = pick(GENERIC.cozyHigh);
     else if (reasons.includes('cheap') && chance(0.3)) text = pick(GENERIC.cheap);
     else text = pick(LINES[c.persona].happy);
@@ -499,6 +513,8 @@ export class CustomerManager {
     }
     if (c.pickupIdx >= 0) this.pickupTaken[c.pickupIdx] = null;
     c.pickupIdx = -1;
+    // wer am Tisch gegessen hat, lässt den Becher stehen
+    if (c.served && c.seat && c.seat.tableUid !== null && c.ch.position.z < -0.3) this.ctx.mess.leftover(c.seat.tableUid, c.seat, c.itemColor);
     this.releaseSeat(c);
     c.state = 'leaving';
     c.ch.standUp();
@@ -524,6 +540,20 @@ export class CustomerManager {
   private updateCustomer(c: Customer, dt: number): void {
     c.ch.update(dt);
     const ctx = this.ctx;
+    const pos = c.ch.position;
+    if (c.spillT > 0) {
+      c.spillT -= dt;
+      if (c.spillT <= 0 && pos.z < -0.6) {
+        ctx.mess.spill(pos.x, pos.z, c.itemColor);
+        ctx.say(c.ch, pick(GENERIC.spill));
+        ctx.sfx.play('pop');
+      }
+    }
+    // durch eine Pfütze gelaufen?
+    if (c.ch.hasPath && pos.z < -0.3 && !c.thoughts.includes('sticky') && ctx.mess.spillAt(pos.x, pos.z)) {
+      c.thoughts.push('sticky');
+      ctx.say(c.ch, pick(GENERIC.sticky));
+    }
     switch (c.state) {
       case 'atFridge':
         c.timer -= dt;

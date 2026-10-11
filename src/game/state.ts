@@ -49,6 +49,8 @@ export interface GameState {
   wishes: Record<string, number>;
   /** bereits gezeigte Hinweise */
   hintsSeen: string[];
+  /** Füllstand des Mülleimers hinter der Theke */
+  trash: number;
 }
 
 const SAVE_KEY = 'froyo-corner-save-v1';
@@ -94,6 +96,7 @@ export function newState(): GameState {
     tutorialDone: false,
     wishes: {},
     hintsSeen: [],
+    trash: 0,
   };
 }
 

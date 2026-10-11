@@ -15,6 +15,7 @@ import { Interactions } from './interact';
 import { BuildMode } from './build';
 import { StockAlerts } from './alerts';
 import { Hints } from './hints';
+import { Mess } from './mess';
 import type { Persona } from '../data/dialogue';
 import { StaffWorker } from '../entities/staff';
 import { Thief } from '../entities/thief';
@@ -60,6 +61,7 @@ export class Game implements Ctx {
   readonly build: BuildMode;
   readonly alerts: StockAlerts;
   readonly hints: Hints;
+  readonly mess: Mess;
   staff: StaffWorker[] = [];
   thief: Thief | null = null;
 
@@ -100,6 +102,7 @@ export class Game implements Ctx {
     this.bubbles = new Bubbles(container);
     this.player = new Player(state.player, this.scene);
     this.resetPlayerPos();
+    this.mess = new Mess(this);
     this.cm = new CustomerManager(this);
     this.interact = new Interactions(this);
     this.build = new BuildMode(this);
@@ -108,6 +111,7 @@ export class Game implements Ctx {
     this.bubbles.onAlertClick = (id) => {
       if (this.build.active) return;
       if (id === 'zapfer' || id === 'eismaschine') this.toast('🥣 Frischen Joghurt rührst du im Nebenraum an – durch die Tür in der Rückwand.');
+      else if (id === 'trash') this.toast('🗑️ Müllsack aus dem Eimer nehmen und raus zur Tonne an der Straße bringen.');
       else this.ui.openPanel('lager');
     };
     this.syncStaff();
@@ -528,11 +532,15 @@ export class Game implements Ctx {
     const B = L.back;
     const bounds = (x: number, z: number) => (x > -L.W / 2 + 0.35 && x < L.W / 2 - 0.35 && z > -L.D + 0.35 && z < -0.3)
       // Nebenraum (die Rückwand hat Kollision – rein geht's nur durch den Durchgang)
-      || (x > B.x0 + 0.35 && x < B.x1 - 0.35 && z > B.z0 + 0.35 && z < -L.D + 0.4);
+      || (x > B.x0 + 0.35 && x < B.x1 - 0.35 && z > B.z0 + 0.35 && z < -L.D + 0.4)
+      // durch die Eingangstür raus auf den Gehweg (bis zur Bordsteinkante)
+      || (x > L.doorX - L.doorW / 2 + 0.3 && x < L.doorX + L.doorW / 2 - 0.25 && z > -0.45 && z < 0.85)
+      || (x > -L.W / 2 - 4 && x < L.W / 2 + 4 && z > 0.75 && z < 4.15);
     const input = this.interact.busy ? new THREE.Vector2() : this.moveInput();
     this.player.update(dt, input, this.shop.colliders, bounds);
 
     this.interact.update(dt);
+    this.mess.update();
     this.cm.update(dt, this.hour);
     for (const w of this.staff) w.update(dt);
     if (this.thief) {
@@ -551,7 +559,7 @@ export class Game implements Ctx {
     const p = this.player.pos;
     const tx = this.build.active ? 0 : clamp(p.x, -L.W / 2 + 3, L.W / 2 - 3);
     // im Nebenraum darf die Kamera weiter nach hinten
-    const tz = this.build.active ? -L.D / 2 + 0.5 : clamp(p.z, p.z < -L.D + 0.2 ? -L.D - 1.4 : -L.D + 2.5, -1.5);
+    const tz = this.build.active ? -L.D / 2 + 0.5 : clamp(p.z, p.z < -L.D + 0.2 ? -L.D - 1.4 : -L.D + 2.5, p.z > 0 ? 3.2 : -1.5);
     this.camTarget.x = damp(this.camTarget.x, tx, 4, dt);
     this.camTarget.z = damp(this.camTarget.z, tz, 4, dt);
     const base = this.build.active ? 1.25 + L.W / 40 : 0.95 + L.W / 60;
